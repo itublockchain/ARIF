@@ -1,0 +1,374 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useAccount } from "wagmi";
+import { useKYCStatus } from "@/hooks/use-kyc-status";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  CheckCircle,
+  XCircle,
+  CreditCard,
+  Users,
+  DollarSign,
+  User,
+} from "lucide-react";
+import { mockContract } from "@/lib/mock-contract";
+import { useToast } from "@/hooks/use-toast";
+import { BorrowRequest } from "@/lib/types";
+import { parseUnits } from "viem";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+const RequestSchema = z.object({
+  amount: z.string().min(1, "Amount is required"),
+  token: z.string().min(1, "Please select a token"),
+  dueDate: z.string().min(1, "Due date is required"),
+});
+
+type RequestFormData = z.infer<typeof RequestSchema>;
+
+export default function BorrowerPage() {
+  const { address, isConnected } = useAccount();
+  const { isVerified: kycStatus } = useKYCStatus();
+  const [myRequests, setMyRequests] = useState<BorrowRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  // Available tokens
+  const availableTokens = [
+    {
+      symbol: "USDC",
+      name: "USD Coin",
+      address: "0x1234567890abcdef1234567890abcdef12345678" as `0x${string}`,
+      decimals: 6,
+    },
+    {
+      symbol: "USDT",
+      name: "Tether USD",
+      address: "0xabcdef1234567890abcdef1234567890abcdef12" as `0x${string}`,
+      decimals: 6,
+    },
+    {
+      symbol: "DAI",
+      name: "Dai Stablecoin",
+      address: "0x9876543210fedcba9876543210fedcba98765432" as `0x${string}`,
+      decimals: 18,
+    },
+  ];
+
+  const form = useForm<RequestFormData>({
+    resolver: zodResolver(RequestSchema),
+    defaultValues: {
+      amount: "",
+      token: "",
+      dueDate: "",
+    },
+  });
+
+  // Mock verification status
+  const creditGrade = { grade: "B" as const, hasGrade: true };
+  const reclaimProof = { isValid: true };
+
+  const formatAmount = (amount: bigint, decimals: number = 6) => {
+    return (Number(amount) / 10 ** decimals).toLocaleString();
+  };
+
+  const formatDueDate = (dueDate: number) => {
+    const now = Math.floor(Date.now() / 1000);
+    const daysLeft = Math.ceil((dueDate - now) / (24 * 60 * 60));
+    return daysLeft > 0 ? `${daysLeft} days left` : "Overdue";
+  };
+
+  const getFundedPercentage = (amount: bigint, funded: bigint) => {
+    return Number((funded * BigInt(100)) / amount);
+  };
+
+  // Get selected token for dynamic labels
+  const selectedTokenSymbol = form.watch("token");
+  const selectedToken = availableTokens.find(
+    (token) => token.symbol === selectedTokenSymbol
+  );
+
+  const canCreateRequest =
+    kycStatus && creditGrade.hasGrade && reclaimProof.isValid;
+
+  const onSubmit = async (data: RequestFormData) => {
+    if (!canCreateRequest || !address) return;
+
+    setIsSubmitting(true);
+
+    try {
+      // Find selected token
+      const selectedToken = availableTokens.find(
+        (token) => token.symbol === data.token
+      );
+      if (!selectedToken) {
+        toast({
+          title: "Invalid Token",
+          description: "Please select a valid token",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Parse amount to raw units using token decimals
+      const amountRaw = parseUnits(data.amount, selectedToken.decimals);
+      const dueUnix = Math.floor(new Date(data.dueDate).getTime() / 1000);
+
+      // Validate due date is in the future
+      if (dueUnix <= Math.floor(Date.now() / 1000)) {
+        toast({
+          title: "Invalid Date",
+          description: "Due date must be in the future",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Create request using mock contract
+      const newRequestId = await mockContract.createRequest(
+        address,
+        selectedToken.address,
+        amountRaw,
+        dueUnix,
+        1200 // 12% max APR in basis points
+      );
+
+      // Refresh requests
+      const userRequests = await mockContract.getRequestsByBorrower(address);
+      setMyRequests(userRequests);
+
+      // Reset form
+      form.reset();
+
+      toast({
+        title: "Request Created!",
+        description: `Your borrow request #${newRequestId.toString()} has been created successfully`,
+      });
+    } catch (error) {
+      console.error("Error creating request:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to create request",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Load data from mock contract
+  useEffect(() => {
+    const loadData = async () => {
+      if (!address) return;
+
+      try {
+        setIsLoading(true);
+        const userRequests = await mockContract.getRequestsByBorrower(address);
+        setMyRequests(userRequests);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load data",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [address, toast]);
+
+  if (!isConnected) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center space-y-4">
+          <h1 className="text-3xl font-bold">Borrower Dashboard</h1>
+          <p className="text-muted-foreground text-lg">
+            Connect your wallet to start borrowing
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold text-center">BORROWER PAGE</h1>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Request Form & My Requests */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Borrow Request Form */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Burada istek acabilcek</CardTitle>
+              <CardDescription>Create a new loan request</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">
+                      Amount {selectedToken ? `(${selectedToken.symbol})` : ""}
+                    </label>
+                    <Input
+                      placeholder="10000"
+                      {...form.register("amount")}
+                      type="number"
+                      disabled={!canCreateRequest}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Token</label>
+                    <Select
+                      onValueChange={(value) => form.setValue("token", value)}
+                      disabled={!canCreateRequest}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a token" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTokens.map((token) => (
+                          <SelectItem key={token.symbol} value={token.symbol}>
+                            {token.symbol} - {token.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Due Date</label>
+                    <Input
+                      type="datetime-local"
+                      {...form.register("dueDate")}
+                      disabled={!canCreateRequest}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={!canCreateRequest || isSubmitting}
+                  size="lg"
+                >
+                  {isSubmitting ? "Creating..." : "Create Borrow Request"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* My Requests */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                My Requests
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {isLoading ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  Loading requests...
+                </div>
+              ) : myRequests.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  No requests yet
+                </div>
+              ) : (
+                myRequests.map((request) => (
+                  <div
+                    key={request.id.toString()}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                  >
+                    <div>
+                      <div className="font-medium">
+                        {formatAmount(request.amount)} USDC istiyom
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Due: {formatDueDate(request.dueDate)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Funded:{" "}
+                        {getFundedPercentage(request.amount, request.funded)}%
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">Score: 87</Badge>
+                      <Badge
+                        variant={
+                          request.status === "Open" ? "secondary" : "default"
+                        }
+                      >
+                        {request.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column - Profile & My Debts */}
+        <div className="space-y-4">
+          {/* Profile Section */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg font-semibold">Profil</CardTitle>
+              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                <User className="h-4 w-4 text-gray-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground">
+                {address?.slice(0, 6)}...{address?.slice(-4)}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* My Debts Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">My Debts</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-sm font-medium">10 borcum var x'e</div>
+              <div className="text-sm font-medium">5 borcum var y'ye</div>
+              <div className="text-sm font-medium">15 borcum var z'ye</div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
