@@ -74,10 +74,11 @@ class ContractService {
 
       for (let i = BigInt(0); i < nextID; i++) {
         try {
-          const request = await this.requestBookContract.read.borrowRequestByID(
-            [i]
-          );
-          if (request.borrower.toLowerCase() === borrower.toLowerCase()) {
+          const requestData =
+            await this.requestBookContract.read.borrowRequestByID([i]);
+          // Contract'tan gelen veri array formatında [id, amount, borrower, assetERC20Address]
+          const borrowerAddress = requestData[2];
+          if (borrowerAddress.toLowerCase() === borrower.toLowerCase()) {
             requestIDs.push(i);
           }
         } catch {
@@ -198,25 +199,31 @@ class ContractService {
     borrower: `0x${string}`
   ): Promise<BorrowRequestExtended[]> {
     try {
+      console.log("🔍 Getting borrow requests for borrower:", borrower);
       const requestIDs = await this.getBorrowRequestIDs(borrower);
+      console.log("📊 Found request IDs:", requestIDs);
       const requests: BorrowRequestExtended[] = [];
 
       for (const id of requestIDs) {
         const request = await this.getBorrowRequest(id);
+        console.log(`📋 Request ${id.toString()}:`, request);
         if (request) {
           const isCancelled = await this.isBorrowRequestCancelled(id);
           const loan = await this.getLoanByBorrowID(id);
 
           if (!isCancelled) {
-            requests.push({
+            const requestData = {
               ...request,
               status: loan?.isFilled ? "Funded" : "Open",
               funded: loan?.isFilled ? request.amount : BigInt(0),
-            });
+            };
+            console.log("✅ Adding borrower request:", requestData);
+            requests.push(requestData);
           }
         }
       }
 
+      console.log("📊 Total borrower requests found:", requests.length);
       return requests;
     } catch (error) {
       console.error("Error getting borrow requests by borrower:", error);

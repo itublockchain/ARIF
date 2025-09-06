@@ -1,7 +1,7 @@
 // Mock EAS Implementation
 // EAS Configuration
 const EAS_CONTRACT_ADDRESS =
-  process.env.NEXT_PUBLIC_EAS_ADDRESS ||
+  process.env.NEXT_PUBLIC_EAS_ADDRESS ||  
   "0x4200000000000000000000000000000000000021";
 const EAS_SCHEMA_UID_KYC_PASSED =
   process.env.NEXT_PUBLIC_EAS_SCHEMA_KYC ||

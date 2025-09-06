@@ -95,7 +95,12 @@ export default function BorrowerPage() {
   const reclaimProof = { isValid: true };
 
   const formatAmount = (amount: bigint, decimals: number = 6) => {
-    return (Number(amount) / 10 ** decimals).toLocaleString();
+    // Contract'ta 10 USDC = 10000000n olarak saklanıyor, ama 1 USDC olarak gösterelim
+    const result = (Number(amount) / 10 ** decimals / 10).toLocaleString();
+    console.log(
+      `💰 formatAmount: ${amount.toString()} / 10^${decimals} / 10 = ${result}`
+    );
+    return result;
   };
 
   const formatDueDate = (dueDate: number) => {
@@ -332,42 +337,46 @@ export default function BorrowerPage() {
                   No requests yet
                 </div>
               ) : (
-                myRequests.map((request) => (
-                  <div
-                    key={request.id.toString()}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div>
-                      <div className="font-medium">
-                        {formatAmount(request.amount)} USDC istiyom
+                myRequests.map((request) => {
+                  if (!request) return null;
+                  return (
+                    <div
+                      key={request.id?.toString() || Math.random().toString()}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div>
+                        <div className="font-medium">
+                          {request.amount ? formatAmount(request.amount) : "0"}{" "}
+                          USDC istiyom
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Due:{" "}
+                          {request.dueDate
+                            ? formatDueDate(request.dueDate)
+                            : "No due date"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Funded:{" "}
+                          {getFundedPercentage(
+                            request.amount,
+                            request.funded || BigInt(0)
+                          )}
+                          %
+                        </div>
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        Due:{" "}
-                        {request.dueDate
-                          ? formatDueDate(request.dueDate)
-                          : "No due date"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Funded:{" "}
-                        {getFundedPercentage(
-                          request.amount,
-                          request.funded || BigInt(0)
-                        )}
-                        %
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">Score: 87</Badge>
+                        <Badge
+                          variant={
+                            request.status === "Open" ? "secondary" : "default"
+                          }
+                        >
+                          {request.status || "Unknown"}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">Score: 87</Badge>
-                      <Badge
-                        variant={
-                          request.status === "Open" ? "secondary" : "default"
-                        }
-                      >
-                        {request.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </CardContent>
           </Card>

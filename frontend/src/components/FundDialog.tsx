@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -13,57 +12,75 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DollarSign, AlertCircle } from "lucide-react";
-import { parseUnits } from "viem";
 import { BorrowRequest } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
 interface FundDialogProps {
   request: BorrowRequest;
   onFund: (requestId: bigint, amount: bigint) => Promise<void>;
+  onApprove: (amount: bigint) => Promise<void>;
+  allowance?: bigint;
+  isPending?: boolean;
   children: React.ReactNode;
 }
 
-export function FundDialog({ request, onFund, children }: FundDialogProps) {
+export function FundDialog({
+  request,
+  onFund,
+  onApprove,
+  allowance,
+  isPending,
+  children,
+}: FundDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [amount, setAmount] = useState("");
   const [isFunding, setIsFunding] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const remainingAmount = request.amount - request.funded;
-  const maxAmount = remainingAmount;
+  const remainingAmount = request.amount - (request.funded || BigInt(0));
+  const needsApproval = !allowance || allowance < remainingAmount;
+
+  const handleApprove = async () => {
+    if (isApproving) return;
+
+    try {
+      setError(null);
+      setIsApproving(true);
+
+      await onApprove(remainingAmount);
+
+      toast({
+        title: "Approval Successful!",
+        description: `Approved ${formatAmount(
+          remainingAmount
+        )} USDC for lending`,
+      });
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to approve USDC";
+      setError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsApproving(false);
+    }
+  };
 
   const handleFund = async () => {
-    if (!amount || isFunding) return;
+    if (isFunding || remainingAmount <= 0) return;
 
     try {
       setError(null);
       setIsFunding(true);
 
-      // Parse amount to raw units (assuming 6 decimals for USDC)
-      const amountRaw = parseUnits(amount, 6);
-
-      if (amountRaw > maxAmount) {
-        setError("Amount exceeds remaining funding needed");
-        setIsFunding(false);
-        return;
-      }
-
-      if (amountRaw <= 0n) {
-        setError("Amount must be greater than 0");
-        setIsFunding(false);
-        return;
-      }
-
-      await onFund(request.id, amountRaw);
-
-      toast({
-        title: "Success!",
-        description: `Successfully funded ${amount} USDC`,
-      });
+      // Fund the remaining amount automatically
+      await onFund(request.id, remainingAmount);
 
       setIsOpen(false);
-      setAmount("");
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to fund request";
@@ -92,7 +109,7 @@ export function FundDialog({ request, onFund, children }: FundDialogProps) {
             Fund Request
           </DialogTitle>
           <DialogDescription>
-            Contribute to this borrow request
+            Fund the remaining amount for this borrow request
           </DialogDescription>
         </DialogHeader>
 
@@ -100,9 +117,13 @@ export function FundDialog({ request, onFund, children }: FundDialogProps) {
           <div className="bg-muted p-4 rounded-lg">
             <h4 className="font-medium mb-2">Request Details</h4>
             <div className="text-sm text-muted-foreground space-y-1">
-              <div>Amount: {formatAmount(request.amount)} USDC</div>
-              <div>Funded: {formatAmount(request.funded)} USDC</div>
-              <div>Remaining: {formatAmount(remainingAmount)} USDC</div>
+              <div>Total Amount: {formatAmount(request.amount)} USDC</div>
+              <div>
+                Already Funded: {formatAmount(request.funded || BigInt(0))} USDC
+              </div>
+              <div className="font-medium text-foreground">
+                Remaining: {formatAmount(remainingAmount)} USDC
+              </div>
               <div>
                 Borrower: {request.borrower.slice(0, 6)}...
                 {request.borrower.slice(-4)}
@@ -110,19 +131,27 @@ export function FundDialog({ request, onFund, children }: FundDialogProps) {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Amount to Fund (USDC)</label>
-            <Input
-              type="number"
-              placeholder="1000"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              max={Number(formatAmount(maxAmount))}
-            />
-            <div className="text-xs text-muted-foreground">
-              Maximum: {formatAmount(maxAmount)} USDC
+          {needsApproval ? (
+            <div className="bg-yellow-50 dark:bg-yellow-950 p-4 rounded-lg">
+              <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                <strong>Approval Required:</strong> You need to approve USDC
+                spending first
+              </div>
+              <div className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">
+                This allows the contract to transfer your USDC tokens
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+              <div className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>You will fund:</strong> {formatAmount(remainingAmount)}{" "}
+                USDC
+              </div>
+              <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                This will complete the funding for this request
+              </div>
+            </div>
+          )}
 
           {error && (
             <Alert>
@@ -132,13 +161,27 @@ export function FundDialog({ request, onFund, children }: FundDialogProps) {
           )}
 
           <div className="flex gap-2">
-            <Button
-              onClick={handleFund}
-              disabled={!amount || isFunding}
-              className="flex-1"
-            >
-              {isFunding ? "Funding..." : "Fund Request"}
-            </Button>
+            {needsApproval ? (
+              <Button
+                onClick={handleApprove}
+                disabled={isApproving || remainingAmount <= 0 || isPending}
+                className="flex-1"
+              >
+                {isApproving || isPending
+                  ? "Approving..."
+                  : `Approve ${formatAmount(remainingAmount)} USDC`}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleFund}
+                disabled={isFunding || remainingAmount <= 0 || isPending}
+                className="flex-1"
+              >
+                {isFunding || isPending
+                  ? "Funding..."
+                  : `Fund ${formatAmount(remainingAmount)} USDC`}
+              </Button>
+            )}
             <Button
               onClick={() => setIsOpen(false)}
               variant="outline"
