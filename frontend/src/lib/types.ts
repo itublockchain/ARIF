@@ -7,17 +7,30 @@ export type RequestStatus =
   | "Repaid"
   | "Canceled";
 
+// Real contract BorrowRequest structure
 export type BorrowRequest = {
   id: bigint;
   borrower: `0x${string}`;
-  token: `0x${string}`;
   amount: bigint; // raw (wei/units)
-  dueDate: number; // unix seconds
-  funded: bigint; // raw
-  maxAprBps?: number; // opsiyon
-  status: RequestStatus;
+  assetERC20Address: `0x${string}`;
 };
 
+// Real contract Loan structure
+export type Loan = {
+  isFilled: boolean;
+  borrowID: bigint;
+  lender: `0x${string}`;
+};
+
+// Extended BorrowRequest with additional frontend data
+export type BorrowRequestExtended = BorrowRequest & {
+  dueDate?: number; // unix seconds (for frontend display)
+  funded?: bigint; // raw (for frontend display)
+  maxAprBps?: number; // opsiyon (for frontend display)
+  status: RequestStatus; // computed status
+};
+
+// Legacy Lending type for compatibility
 export type Lending = {
   requestId: bigint;
   lender: `0x${string}`;

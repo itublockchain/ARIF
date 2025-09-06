@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAccount } from "wagmi";
+import {
+  useAccount,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import {
   Card,
   CardContent,
@@ -19,13 +23,19 @@ import {
   User,
 } from "lucide-react";
 import { FundDialog } from "@/components/FundDialog";
-import { mockContract } from "@/lib/mock-contract";
+import { contractService } from "@/lib/contract-service";
 import { useToast } from "@/hooks/use-toast";
-import { BorrowRequest, Lending } from "@/lib/types";
+import { BorrowRequestExtended, Lending } from "@/lib/types";
 
 export default function LenderPage() {
   const { address, isConnected } = useAccount();
-  const [borrowRequests, setBorrowRequests] = useState<BorrowRequest[]>([]);
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
+  const [borrowRequests, setBorrowRequests] = useState<BorrowRequestExtended[]>(
+    []
+  );
   const [myLendings, setMyLendings] = useState<Lending[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -46,6 +56,7 @@ export default function LenderPage() {
   };
 
   const getFundedPercentage = (amount: bigint, funded: bigint) => {
+    if (!amount || amount === BigInt(0)) return 0;
     return Number((funded * BigInt(100)) / amount);
   };
 
@@ -57,8 +68,8 @@ export default function LenderPage() {
       try {
         setIsLoading(true);
         const [allRequests, userLendings] = await Promise.all([
-          mockContract.getAllRequests(),
-          mockContract.getLendingsByLender(address),
+          contractService.getAllBorrowRequests(),
+          contractService.getAllLoans(address),
         ]);
 
         setBorrowRequests(allRequests);
@@ -82,20 +93,12 @@ export default function LenderPage() {
     if (!address) return;
 
     try {
-      await mockContract.fundRequest(requestId, address, amount);
+      const contractConfig = contractService.getContractConfig();
 
-      // Refresh data
-      const [allRequests, userLendings] = await Promise.all([
-        mockContract.getAllRequests(),
-        mockContract.getLendingsByLender(address),
-      ]);
-
-      setBorrowRequests(allRequests);
-      setMyLendings(userLendings);
-
-      toast({
-        title: "Success!",
-        description: "Request funded successfully",
+      writeContract({
+        ...contractConfig,
+        functionName: "createLoan",
+        args: [requestId],
       });
     } catch (error) {
       console.error("Error funding request:", error);
@@ -107,6 +110,36 @@ export default function LenderPage() {
       });
     }
   };
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isSuccess && address) {
+      toast({
+        title: "Success!",
+        description: "Request funded successfully",
+      });
+
+      // Refresh data
+      Promise.all([
+        contractService.getAllBorrowRequests(),
+        contractService.getAllLoans(address),
+      ]).then(([allRequests, userLendings]) => {
+        setBorrowRequests(allRequests);
+        setMyLendings(userLendings);
+      });
+    }
+  }, [isSuccess, toast, address]);
+
+  // Handle transaction error
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to fund request",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
 
   if (!isConnected) {
     return (
@@ -146,13 +179,23 @@ export default function LenderPage() {
                         {formatAmount(request.amount)} USDC istiyor
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {request.borrower.slice(0, 6)}...
-                        {request.borrower.slice(-4)} •{" "}
-                        {formatDueDate(request.dueDate)}
+                        {request.borrower
+                          ? `${request.borrower.slice(
+                              0,
+                              6
+                            )}...${request.borrower.slice(-4)}`
+                          : "Unknown"}{" "}
+                        •{" "}
+                        {request.dueDate
+                          ? formatDueDate(request.dueDate)
+                          : "No due date"}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        {getFundedPercentage(request.amount, request.funded)}%
-                        funded
+                        {getFundedPercentage(
+                          request.amount,
+                          request.funded || BigInt(0)
+                        )}
+                        % funded
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

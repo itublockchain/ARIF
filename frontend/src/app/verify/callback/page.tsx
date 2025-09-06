@@ -46,6 +46,9 @@ export default function VerifyCallbackPage() {
     const inquiryIdParam = searchParams.get("inquiry-id");
     const errorParam = searchParams.get("error");
 
+    console.log("Wallet address:", address);
+    console.log("Inquiry ID:", inquiryIdParam);
+
     if (errorParam) {
       setError(decodeURIComponent(errorParam));
       setStatus("error");
@@ -60,7 +63,7 @@ export default function VerifyCallbackPage() {
       setError("No inquiry ID provided");
       setStatus("error");
     }
-  }, [searchParams, isClient]);
+  }, [searchParams, isClient, address]);
 
   const checkKYCStatus = async (inquiryId: string, retryCount = 0) => {
     try {
@@ -93,27 +96,35 @@ export default function VerifyCallbackPage() {
         setStatus("success");
         setProgress(100);
 
-        // Create EAS attestation
-        try {
-          const attestResponse = await fetch("/api/kyc/attest", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              inquiryId,
-              walletAddress: address,
-            }),
-          });
+        // Create EAS attestation only if wallet is connected
+        if (address) {
+          try {
+            const attestResponse = await fetch("/api/kyc/attest", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                inquiryId,
+                walletAddress: address,
+              }),
+            });
 
-          if (attestResponse.ok) {
-            const attestData = await attestResponse.json();
-            console.log("KYC attestation created:", attestData.attestationUID);
-          } else {
-            console.error("Failed to create KYC attestation");
+            if (attestResponse.ok) {
+              const attestData = await attestResponse.json();
+              console.log(
+                "KYC attestation created:",
+                attestData.attestationUID
+              );
+            } else {
+              const errorData = await attestResponse.json();
+              console.error("Failed to create KYC attestation:", errorData);
+            }
+          } catch (attestError) {
+            console.error("Error creating KYC attestation:", attestError);
           }
-        } catch (attestError) {
-          console.error("Error creating KYC attestation:", attestError);
+        } else {
+          console.log("No wallet connected, skipping attestation creation");
         }
 
         // Update KYC status in the hook

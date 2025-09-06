@@ -1,37 +1,14 @@
-import { ethers } from "ethers";
-
-// Mock EAS SDK implementation for development
-// TODO: Replace with real EAS SDK when Turbopack compatibility is fixed
-
+// Mock EAS Implementation
 // EAS Configuration
 const EAS_CONTRACT_ADDRESS =
-  process.env.EAS_CONTRACT_ADDRESS ||
-  "0x0000000000000000000000000000000000000000";
+  process.env.NEXT_PUBLIC_EAS_ADDRESS ||
+  "0x4200000000000000000000000000000000000021";
 const EAS_SCHEMA_UID_KYC_PASSED =
-  process.env.EAS_SCHEMA_UID_KYC_PASSED ||
-  "0x0000000000000000000000000000000000000000000000000000000000000000";
+  process.env.NEXT_PUBLIC_EAS_SCHEMA_KYC ||
+  "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
 const EAS_SCHEMA_UID_CREDIT_GRADE =
-  process.env.EAS_SCHEMA_UID_CREDIT_GRADE ||
-  "0x0000000000000000000000000000000000000000000000000000000000000000";
-
-// Mock Schema Encoder
-class MockSchemaEncoder {
-  constructor(schema: string) {
-    console.log("Mock SchemaEncoder initialized with schema:", schema);
-  }
-
-  encodeData(
-    data: Array<{
-      name: string;
-      value: string | number | boolean;
-      type: string;
-    }>
-  ) {
-    console.log("Mock SchemaEncoder encodeData called with:", data);
-    // Return mock encoded data
-    return "0x" + Math.random().toString(16).substr(2, 64);
-  }
-}
+  process.env.NEXT_PUBLIC_EAS_SCHEMA_GRADE ||
+  "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
 
 // Mock EAS Instance
 class MockEAS {
@@ -39,25 +16,12 @@ class MockEAS {
     console.log("Mock EAS initialized with contract:", contractAddress);
   }
 
-  async attest(data: {
-    schema: string;
-    data: {
-      recipient: string;
-      expirationTime: number;
-      revocable: boolean;
-      data: string;
-    };
-  }) {
-    console.log("Mock EAS attest called with:", data);
-    // Return a mock transaction object
-    return {
-      wait: async () => {
-        // Generate a mock attestation UID
-        const mockUID = `0x${Math.random().toString(16).substr(2, 64)}`;
-        console.log("Mock attestation created with UID:", mockUID);
-        return mockUID;
-      },
-    };
+  async attest(schema: string, data: Record<string, unknown>) {
+    console.log("Mock EAS attest called with:", { schema, data });
+    // Return a mock transaction hash
+    const mockTxHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+    console.log("Mock attestation created with tx hash:", mockTxHash);
+    return mockTxHash;
   }
 
   async getAttestation(uid: string) {
@@ -72,7 +36,7 @@ class MockEAS {
 }
 
 // Initialize EAS
-export async function getEASInstance(_provider?: ethers.Provider) {
+export async function getEASInstance() {
   return new MockEAS(EAS_CONTRACT_ADDRESS);
 }
 
@@ -80,7 +44,7 @@ export async function getEASInstance(_provider?: ethers.Provider) {
 export async function getOffchainEASInstance() {
   return {
     address: EAS_CONTRACT_ADDRESS,
-    chainId: 1729, // RISE L2
+    chainId: 11155931, // RISE L2
     version: "0.26",
   };
 }
@@ -94,39 +58,23 @@ export const CREDIT_GRADE_SCHEMA =
 
 // Create KYC Passed Attestation
 export async function createKYCAttestation(
-  provider: ethers.Provider,
-  signer: ethers.Signer,
+  provider: unknown,
+  signer: unknown,
   inquiryId: string,
   walletAddress: string
 ) {
   try {
-    const eas = await getEASInstance(provider);
-    const schemaEncoder = new MockSchemaEncoder(KYC_SCHEMA);
+    const eas = await getEASInstance();
 
-    const encodedData = schemaEncoder.encodeData([
-      { name: "kycPassed", value: true, type: "bool" },
-      { name: "inquiryId", value: inquiryId, type: "string" },
-      {
-        name: "timestamp",
-        value: Math.floor(Date.now() / 1000),
-        type: "uint256",
-      },
-    ]);
-
-    const tx = await eas.attest({
-      schema: EAS_SCHEMA_UID_KYC_PASSED,
-      data: {
-        recipient: walletAddress,
-        expirationTime: 0, // No expiration
-        revocable: true,
-        data: encodedData,
-      },
+    const tx = await eas.attest(EAS_SCHEMA_UID_KYC_PASSED, {
+      recipient: walletAddress,
+      inquiryId: inquiryId,
+      timestamp: Math.floor(Date.now() / 1000),
     });
 
-    const newAttestationUID = await tx.wait();
-    console.log("KYC Attestation created:", newAttestationUID);
+    console.log("KYC Attestation created:", tx);
 
-    return newAttestationUID;
+    return tx;
   } catch (error) {
     console.error("Error creating KYC attestation:", error);
     throw error;
@@ -135,40 +83,25 @@ export async function createKYCAttestation(
 
 // Create Credit Grade Attestation
 export async function createCreditGradeAttestation(
-  provider: ethers.Provider,
-  signer: ethers.Signer,
+  provider: unknown,
+  signer: unknown,
   grade: "A" | "B" | "C",
   score: number,
   walletAddress: string
 ) {
   try {
-    const eas = await getEASInstance(provider);
-    const schemaEncoder = new MockSchemaEncoder(CREDIT_GRADE_SCHEMA);
+    const eas = await getEASInstance();
 
-    const encodedData = schemaEncoder.encodeData([
-      { name: "grade", value: grade, type: "string" },
-      { name: "score", value: score, type: "uint256" },
-      {
-        name: "timestamp",
-        value: Math.floor(Date.now() / 1000),
-        type: "uint256",
-      },
-    ]);
-
-    const tx = await eas.attest({
-      schema: EAS_SCHEMA_UID_CREDIT_GRADE,
-      data: {
-        recipient: walletAddress,
-        expirationTime: 0, // No expiration
-        revocable: true,
-        data: encodedData,
-      },
+    const tx = await eas.attest(EAS_SCHEMA_UID_CREDIT_GRADE, {
+      recipient: walletAddress,
+      grade: grade,
+      score: score,
+      timestamp: Math.floor(Date.now() / 1000),
     });
 
-    const newAttestationUID = await tx.wait();
-    console.log("Credit Grade Attestation created:", newAttestationUID);
+    console.log("Credit Grade Attestation created:", tx);
 
-    return newAttestationUID;
+    return tx;
   } catch (error) {
     console.error("Error creating credit grade attestation:", error);
     throw error;
@@ -177,14 +110,14 @@ export async function createCreditGradeAttestation(
 
 // Verify KYC Attestation
 export async function verifyKYCAttestation(
-  provider: ethers.Provider,
+  provider: unknown,
   attestationUID: string
 ): Promise<boolean> {
   try {
-    const eas = await getEASInstance(provider);
+    const eas = await getEASInstance();
     const attestation = await eas.getAttestation(attestationUID);
 
-    return attestation !== null && attestation.valid;
+    return attestation !== null;
   } catch (error) {
     console.error("Error verifying KYC attestation:", error);
     return false;
@@ -193,13 +126,12 @@ export async function verifyKYCAttestation(
 
 // Get KYC Attestations for a wallet
 export async function getKYCAttestations(
-  provider: ethers.Provider,
-  _walletAddress?: string
+  provider: unknown,
+  walletAddress?: string
 ) {
   try {
-    await getEASInstance(provider);
-    // This would require implementing a custom query or using a subgraph
-    // For now, we'll return a mock response
+    // Mock implementation - return empty array
+    console.log("Getting KYC attestations for wallet:", walletAddress);
     return [];
   } catch (error) {
     console.error("Error getting KYC attestations:", error);

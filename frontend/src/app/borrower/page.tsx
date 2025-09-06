@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAccount } from "wagmi";
+import {
+  useAccount,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import { useKYCStatus } from "@/hooks/use-kyc-status";
 import {
   Card,
@@ -28,9 +32,9 @@ import {
   DollarSign,
   User,
 } from "lucide-react";
-import { mockContract } from "@/lib/mock-contract";
+import { contractService } from "@/lib/contract-service";
 import { useToast } from "@/hooks/use-toast";
-import { BorrowRequest } from "@/lib/types";
+import { BorrowRequestExtended } from "@/lib/types";
 import { parseUnits } from "viem";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -46,10 +50,13 @@ type RequestFormData = z.infer<typeof RequestSchema>;
 
 export default function BorrowerPage() {
   const { address, isConnected } = useAccount();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
   const { isVerified: kycStatus } = useKYCStatus();
-  const [myRequests, setMyRequests] = useState<BorrowRequest[]>([]);
+  const [myRequests, setMyRequests] = useState<BorrowRequestExtended[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   // Available tokens
@@ -98,6 +105,7 @@ export default function BorrowerPage() {
   };
 
   const getFundedPercentage = (amount: bigint, funded: bigint) => {
+    if (!amount || amount === BigInt(0)) return 0;
     return Number((funded * BigInt(100)) / amount);
   };
 
@@ -113,8 +121,6 @@ export default function BorrowerPage() {
   const onSubmit = async (data: RequestFormData) => {
     if (!canCreateRequest || !address) return;
 
-    setIsSubmitting(true);
-
     try {
       // Find selected token
       const selectedToken = availableTokens.find(
@@ -126,7 +132,6 @@ export default function BorrowerPage() {
           description: "Please select a valid token",
           variant: "destructive",
         });
-        setIsSubmitting(false);
         return;
       }
 
@@ -141,29 +146,17 @@ export default function BorrowerPage() {
           description: "Due date must be in the future",
           variant: "destructive",
         });
-        setIsSubmitting(false);
         return;
       }
 
-      // Create request using mock contract
-      const newRequestId = await mockContract.createRequest(
-        address,
-        selectedToken.address,
-        amountRaw,
-        dueUnix,
-        1200 // 12% max APR in basis points
-      );
+      // Get contract config
+      const contractConfig = contractService.getContractConfig();
 
-      // Refresh requests
-      const userRequests = await mockContract.getRequestsByBorrower(address);
-      setMyRequests(userRequests);
-
-      // Reset form
-      form.reset();
-
-      toast({
-        title: "Request Created!",
-        description: `Your borrow request #${newRequestId.toString()} has been created successfully`,
+      // Create request using wagmi writeContract
+      writeContract({
+        ...contractConfig,
+        functionName: "createBorrowRequest",
+        args: [amountRaw, selectedToken.address],
       });
     } catch (error) {
       console.error("Error creating request:", error);
@@ -173,10 +166,36 @@ export default function BorrowerPage() {
           error instanceof Error ? error.message : "Failed to create request",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isSuccess) {
+      toast({
+        title: "Request Created!",
+        description: "Your borrow request has been created successfully",
+      });
+      form.reset();
+      // Refresh requests
+      if (address) {
+        contractService
+          .getBorrowRequestsByBorrower(address)
+          .then(setMyRequests);
+      }
+    }
+  }, [isSuccess, toast, form, address]);
+
+  // Handle transaction error
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create request",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
 
   // Load data from mock contract
   useEffect(() => {
@@ -185,7 +204,9 @@ export default function BorrowerPage() {
 
       try {
         setIsLoading(true);
-        const userRequests = await mockContract.getRequestsByBorrower(address);
+        const userRequests = await contractService.getBorrowRequestsByBorrower(
+          address
+        );
         setMyRequests(userRequests);
       } catch (error) {
         console.error("Error loading data:", error);
@@ -278,10 +299,14 @@ export default function BorrowerPage() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={!canCreateRequest || isSubmitting}
+                  disabled={!canCreateRequest || isPending || isConfirming}
                   size="lg"
                 >
-                  {isSubmitting ? "Creating..." : "Create Borrow Request"}
+                  {isPending
+                    ? "Confirming..."
+                    : isConfirming
+                    ? "Creating..."
+                    : "Create Borrow Request"}
                 </Button>
               </form>
             </CardContent>
@@ -315,11 +340,18 @@ export default function BorrowerPage() {
                         {formatAmount(request.amount)} USDC istiyom
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        Due: {formatDueDate(request.dueDate)}
+                        Due:{" "}
+                        {request.dueDate
+                          ? formatDueDate(request.dueDate)
+                          : "No due date"}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         Funded:{" "}
-                        {getFundedPercentage(request.amount, request.funded)}%
+                        {getFundedPercentage(
+                          request.amount,
+                          request.funded || BigInt(0)
+                        )}
+                        %
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
