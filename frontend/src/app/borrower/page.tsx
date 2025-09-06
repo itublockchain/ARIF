@@ -203,10 +203,12 @@ export default function BorrowerPage() {
       if (!address) return;
 
       try {
+        console.log("🔄 Loading borrower data for address:", address);
         setIsLoading(true);
         const userRequests = await contractService.getBorrowRequestsByBorrower(
           address
         );
+        console.log("📊 User requests loaded:", userRequests);
         setMyRequests(userRequests);
       } catch (error) {
         console.error("Error loading data:", error);

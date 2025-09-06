@@ -34,17 +34,19 @@ class ContractService {
   // Get a specific borrow request
   async getBorrowRequest(borrowID: bigint): Promise<BorrowRequest | null> {
     try {
-      const request = await publicClient.readContract({
+      const requestData = await publicClient.readContract({
         address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
         abi: CONTRACT_ABIS.RequestBook,
         functionName: "getBorrowRequest",
         args: [borrowID],
       });
+
+      // Contract'tan gelen veri array formatında [id, amount, borrower, assetERC20Address]
       return {
-        id: request.id,
-        borrower: request.borrower,
-        amount: request.amount,
-        assetERC20Address: request.assetERC20Address,
+        id: requestData[0],
+        borrower: requestData[2],
+        amount: requestData[1],
+        assetERC20Address: requestData[3],
       };
     } catch (error) {
       console.error("Error getting borrow request:", error);
@@ -122,32 +124,68 @@ class ContractService {
   // Get all borrow requests (for marketplace)
   async getAllBorrowRequests(): Promise<BorrowRequestExtended[]> {
     try {
+      console.log("🔍 Getting all borrow requests...");
       const nextID = await this.requestBookContract.read.nextID();
+      console.log("📊 Next ID:", nextID.toString());
       const requests: BorrowRequestExtended[] = [];
+
+      // nextID 0 ise hiç request yok
+      if (nextID === BigInt(0)) {
+        console.log("📊 No requests found (nextID = 0)");
+        return [];
+      }
 
       for (let i = BigInt(0); i < nextID; i++) {
         try {
-          const request = await this.requestBookContract.read.borrowRequestByID(
-            [i]
-          );
+          console.log(`🔍 Checking request ID: ${i.toString()}`);
+          const requestData =
+            await this.requestBookContract.read.borrowRequestByID([i]);
+          console.log("📋 Request data:", requestData);
+
+          // Contract'tan gelen veri array formatında [id, amount, borrower, assetERC20Address]
+          const request = {
+            id: requestData[0],
+            amount: requestData[1],
+            borrower: requestData[2],
+            assetERC20Address: requestData[3],
+          };
+
+          console.log("📋 Parsed request:", request);
+
+          // Request verisi geçerli mi kontrol et
+          if (
+            !request ||
+            !request.borrower ||
+            request.borrower === "0x0000000000000000000000000000000000000000"
+          ) {
+            console.log(`❌ Invalid request data for ID ${i.toString()}`);
+            continue;
+          }
+
           const isCancelled = await this.isBorrowRequestCancelled(i);
           const loan = await this.getLoanByBorrowID(i);
 
-          if (!isCancelled && request.borrower) {
-            requests.push({
+          if (!isCancelled) {
+            const requestData = {
               id: request.id,
               borrower: request.borrower,
               amount: request.amount,
               assetERC20Address: request.assetERC20Address,
               status: loan?.isFilled ? "Funded" : "Open",
               funded: loan?.isFilled ? request.amount : BigInt(0),
-            });
+            };
+            console.log("✅ Adding request:", requestData);
+            requests.push(requestData);
+          } else {
+            console.log("❌ Skipping cancelled request:", i.toString());
           }
-        } catch {
-          // Request doesn't exist, continue
+        } catch (error) {
+          console.log(`❌ Error getting request ${i.toString()}:`, error);
+          // Bu ID için veri yok, devam et
         }
       }
 
+      console.log("📊 Total requests found:", requests.length);
       return requests;
     } catch (error) {
       console.error("Error getting all borrow requests:", error);

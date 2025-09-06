@@ -66,12 +66,15 @@ export default function LenderPage() {
       if (!address) return;
 
       try {
+        console.log("🔄 Loading lender data for address:", address);
         setIsLoading(true);
         const [allRequests, userLendings] = await Promise.all([
           contractService.getAllBorrowRequests(),
           contractService.getAllLoans(address),
         ]);
 
+        console.log("📊 All requests loaded:", allRequests);
+        console.log("💰 User lendings loaded:", userLendings);
         setBorrowRequests(allRequests);
         setMyLendings(userLendings);
       } catch (error) {
