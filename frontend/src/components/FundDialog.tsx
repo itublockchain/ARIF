@@ -41,6 +41,11 @@ export function FundDialog({
   const { fundBorrowRequest, isPending: isContractPending } =
     useContractActions();
 
+  // EARLY RETURN: If request is already funded, don't render anything
+  if (request.isFunded) {
+    return null;
+  }
+
   const remainingAmount = request.amount - (request.funded || BigInt(0));
   const needsApproval = !allowance || allowance < remainingAmount;
 

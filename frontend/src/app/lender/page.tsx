@@ -269,7 +269,10 @@ export default function LenderPage() {
                 Open Credit Requests
               </h2>
               <div className="text-sm text-slate-700 dark:text-slate-300">
-                {borrowRequests.filter((request) => !request.isFunded).length}{" "}
+                {
+                  borrowRequests.filter((request) => request.isFunded === false)
+                    .length
+                }{" "}
                 open requests
               </div>
             </div>
@@ -290,8 +293,9 @@ export default function LenderPage() {
             ) : (
               <div className="space-y-4">
                 {(() => {
+                  // STRICT FILTERING: Only show requests that are NOT funded
                   const unfundedRequests = borrowRequests.filter(
-                    (request) => !request.isFunded
+                    (request) => request.isFunded === false
                   );
                   console.log(
                     "🔍 All requests:",
@@ -301,7 +305,7 @@ export default function LenderPage() {
                     }))
                   );
                   console.log(
-                    "✅ Unfunded requests:",
+                    "✅ Unfunded requests (STRICT FILTER):",
                     unfundedRequests.map((r) => ({
                       id: r.id.toString(),
                       isFunded: r.isFunded,
