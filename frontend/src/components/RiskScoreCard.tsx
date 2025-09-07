@@ -99,18 +99,19 @@ export function RiskScoreCard() {
   const creditGrade = getCreditGrade(riskData.riskScore);
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
+    <Card className="w-full max-w-4xl mx-auto bg-slate-900 border-slate-700 overflow-hidden">
+      <CardHeader className="pb-4 px-4 sm:px-6">
+        <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-white gap-4">
           <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            AI Risk Assessment
+            <Shield className="h-5 w-5 text-blue-400" />
+            <span className="text-lg font-semibold">AI Risk Assessment</span>
           </div>
           <Button
             onClick={refreshRiskScore}
             variant="outline"
             size="sm"
             disabled={isLoading}
+            className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white w-full sm:w-auto"
           >
             <RefreshCw
               className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
@@ -119,33 +120,43 @@ export function RiskScoreCard() {
           </Button>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-8 px-4 sm:px-6">
         {/* Risk Score Display */}
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-3">
-            <span className="text-4xl">{getRiskIcon(riskData.riskLevel)}</span>
-            <div>
-              <div className="text-3xl font-bold">{riskData.riskScore}/100</div>
+        <div className="text-center space-y-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-3xl">
+                {getRiskIcon(riskData.riskLevel)}
+              </span>
+            </div>
+            <div className="text-center sm:text-left">
+              <div className="text-4xl font-bold text-white mb-2">
+                {riskData.riskScore}/100
+              </div>
               <Badge
-                className={`${getRiskColor(riskData.riskLevel)} font-semibold`}
+                className={`${getRiskColor(
+                  riskData.riskLevel
+                )} font-semibold text-sm px-3 py-1`}
               >
                 {riskData.riskLevel} RISK
               </Badge>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Risk Score</span>
-              <span>{riskData.riskScore}/100</span>
+          <div className="space-y-3 max-w-md mx-auto">
+            <div className="flex justify-between text-sm text-slate-300">
+              <span className="font-medium">Risk Score</span>
+              <span className="font-semibold">{riskData.riskScore}/100</span>
             </div>
-            <Progress value={riskData.riskScore} className="h-2" />
+            <Progress value={riskData.riskScore} className="h-3 bg-slate-700" />
           </div>
         </div>
 
         {/* Credit Grade */}
         <div className="text-center">
-          <div className="text-sm text-slate-600 mb-2">Credit Grade</div>
+          <div className="text-sm text-slate-400 mb-3 font-medium">
+            Credit Grade
+          </div>
           <Badge
             variant={
               creditGrade === "A"
@@ -154,60 +165,66 @@ export function RiskScoreCard() {
                 ? "secondary"
                 : "destructive"
             }
-            className="text-lg px-4 py-2"
+            className="text-xl px-6 py-3 font-bold"
           >
             Grade {creditGrade}
           </Badge>
         </div>
 
         {/* Risk Factors */}
-        <div className="space-y-4">
-          <h4 className="font-semibold text-sm">Risk Factors</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Activity className="h-4 w-4" />
-                <span>Minting Activity</span>
+        <div className="space-y-6">
+          <h4 className="font-semibold text-lg text-white">Risk Factors</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="space-y-3 p-4 rounded-lg bg-slate-800/50 min-h-[120px]">
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <Activity className="h-5 w-5 text-blue-400 flex-shrink-0" />
+                <span className="font-medium">Minting Activity</span>
               </div>
               <Progress
                 value={riskData.factors.mintingActivity}
-                className="h-1"
+                className="h-2 bg-slate-700"
               />
-              <div className="text-xs text-slate-500">
+              <div className="text-sm text-slate-400 font-medium">
                 {riskData.factors.mintingActivity}/100
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Users className="h-4 w-4" />
-                <span>Leaderboard Rank</span>
+            <div className="space-y-3 p-4 rounded-lg bg-slate-800/50 min-h-[120px]">
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <Users className="h-5 w-5 text-green-400 flex-shrink-0" />
+                <span className="font-medium">Leaderboard Rank</span>
               </div>
-              <div className="text-sm font-medium">
+              <div className="text-2xl font-bold text-white">
                 {riskData.factors.leaderboardRank === 999
-                  ? "Not Ranked"
+                  ? "#0"
                   : `#${riskData.factors.leaderboardRank}`}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <TrendingUp className="h-4 w-4" />
-                <span>Consistency</span>
+            <div className="space-y-3 p-4 rounded-lg bg-slate-800/50 min-h-[120px]">
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <TrendingUp className="h-5 w-5 text-yellow-400 flex-shrink-0" />
+                <span className="font-medium">Consistency</span>
               </div>
-              <Progress value={riskData.factors.consistency} className="h-1" />
-              <div className="text-xs text-slate-500">
+              <Progress
+                value={riskData.factors.consistency}
+                className="h-2 bg-slate-700"
+              />
+              <div className="text-sm text-slate-400 font-medium">
                 {riskData.factors.consistency}/100
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Shield className="h-4 w-4" />
-                <span>Volume</span>
+            <div className="space-y-3 p-4 rounded-lg bg-slate-800/50 min-h-[120px]">
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <Shield className="h-5 w-5 text-purple-400 flex-shrink-0" />
+                <span className="font-medium">Volume</span>
               </div>
-              <Progress value={riskData.factors.volume} className="h-1" />
-              <div className="text-xs text-slate-500">
+              <Progress
+                value={riskData.factors.volume}
+                className="h-2 bg-slate-700"
+              />
+              <div className="text-sm text-slate-400 font-medium">
                 {riskData.factors.volume}/100
               </div>
             </div>
@@ -215,22 +232,29 @@ export function RiskScoreCard() {
         </div>
 
         {/* Explanation */}
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription className="text-sm">
+        <Alert className="bg-slate-800/50 border-slate-600">
+          <Info className="h-5 w-5 text-blue-400 flex-shrink-0 mt-1" />
+          <AlertDescription className="text-slate-300 text-sm leading-relaxed break-anywhere">
             {riskData.explanation}
           </AlertDescription>
         </Alert>
 
         {/* Recommendations */}
         {riskData.recommendations.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="font-semibold text-sm">AI Recommendations</h4>
-            <div className="space-y-2">
+          <div className="space-y-4">
+            <h4 className="font-semibold text-lg text-white">
+              AI Recommendations
+            </h4>
+            <div className="space-y-3">
               {riskData.recommendations.map((recommendation, index) => (
-                <div key={index} className="flex items-start gap-2 text-sm">
-                  <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span className="text-slate-700">{recommendation}</span>
+                <div
+                  key={index}
+                  className="flex items-start gap-3 text-sm p-3 rounded-lg bg-slate-800/30"
+                >
+                  <CheckCircle className="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-300 leading-relaxed break-anywhere">
+                    {recommendation}
+                  </span>
                 </div>
               ))}
             </div>
