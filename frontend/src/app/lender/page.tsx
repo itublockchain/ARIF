@@ -152,6 +152,7 @@ export default function LenderPage() {
         abi: CONTRACT_ABIS.TestUSDC,
         functionName: "approve",
         args: [CONTRACT_ADDRESSES.RequestBook as `0x${string}`, amount],
+        gas: 100000n, // Set reasonable gas limit for approval
       });
     } catch (error) {
       console.error("Error approving USDC:", error);

@@ -38,6 +38,7 @@ export function useContractActions() {
               overtimeInterestBps,
               assetAddress,
             ],
+            gas: 400000n, // Set reasonable gas limit
           },
           {
             onSuccess: async (hash) => {
@@ -109,6 +110,7 @@ export function useContractActions() {
           abi: CONTRACT_ABIS.RequestBook,
           functionName: "createLoan",
           args: [borrowID],
+          gas: 300000n, // Set reasonable gas limit
         },
         {
           onSuccess: (hash) => {
@@ -144,6 +146,7 @@ export function useContractActions() {
           abi: CONTRACT_ABIS.RequestBook,
           functionName: "repayLoan",
           args: [borrowID],
+          gas: 300000n, // Set reasonable gas limit
         },
         {
           onSuccess: (hash) => {
@@ -179,6 +182,7 @@ export function useContractActions() {
           abi: CONTRACT_ABIS.RequestBook,
           functionName: "cancelBorrowRequest",
           args: [borrowID],
+          gas: 200000n, // Set reasonable gas limit
         },
         {
           onSuccess: (hash) => {

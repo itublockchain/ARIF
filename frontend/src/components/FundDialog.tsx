@@ -65,11 +65,26 @@ export function FundDialog({
         handleFund();
       }, 1000); // Wait 1 second for approval to be processed
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to approve USDC";
+      let errorMessage = "Failed to approve USDC";
+
+      if (err instanceof Error) {
+        if (
+          err.message.includes("User denied") ||
+          err.message.includes("User rejected")
+        ) {
+          errorMessage =
+            "Approval was cancelled. Please try again if you want to fund this request.";
+        } else if (err.message.includes("insufficient funds")) {
+          errorMessage =
+            "Insufficient USDC balance for approval. Please check your wallet.";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
       setError(errorMessage);
       toast({
-        title: "Error",
+        title: "Approval Failed",
         description: errorMessage,
         variant: "destructive",
       });
@@ -93,11 +108,29 @@ export function FundDialog({
 
       setIsOpen(false);
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to fund request";
+      let errorMessage = "Failed to fund request";
+
+      if (err instanceof Error) {
+        // Handle specific error cases
+        if (
+          err.message.includes("User denied") ||
+          err.message.includes("User rejected")
+        ) {
+          errorMessage =
+            "Transaction was cancelled. Please try again if you want to fund this request.";
+        } else if (err.message.includes("insufficient funds")) {
+          errorMessage = "Insufficient USDC balance. Please check your wallet.";
+        } else if (err.message.includes("gas")) {
+          errorMessage =
+            "Transaction failed due to gas issues. Please try again.";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
       setError(errorMessage);
       toast({
-        title: "Error",
+        title: "Funding Failed",
         description: errorMessage,
         variant: "destructive",
       });
@@ -167,9 +200,9 @@ export function FundDialog({
           )}
 
           {error && (
-            <Alert>
+            <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="text-sm">{error}</AlertDescription>
             </Alert>
           )}
 
