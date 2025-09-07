@@ -283,6 +283,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with ❤️ by the ARIF Team**
+**Built with 💙 by the ITU Blockchain**
 
 _Empowering financial freedom through decentralized peer-to-peer lending_
