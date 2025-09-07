@@ -7,22 +7,9 @@ import {
   useWaitForTransactionReceipt,
   useReadContract,
 } from "wagmi";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  CheckCircle,
-  XCircle,
-  TrendingUp,
-  Users,
-  DollarSign,
-  User,
-} from "lucide-react";
+import { User } from "lucide-react";
 import { FundDialog } from "@/components/FundDialog";
 import { contractService } from "@/lib/contract-service";
 import { useToast } from "@/hooks/use-toast";
@@ -41,6 +28,10 @@ export default function LenderPage() {
   const [myLendings, setMyLendings] = useState<Lending[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingApproval, setPendingApproval] = useState<bigint | null>(null);
+  const [fundingRequest, setFundingRequest] = useState<{
+    id: bigint;
+    amount: bigint;
+  } | null>(null);
   const { toast } = useToast();
 
   // Check USDC allowance
@@ -53,10 +44,10 @@ export default function LenderPage() {
       : undefined,
   });
 
-  // Mock verification status
-  const kycStatus = { isVerified: true };
-  const creditGrade = { grade: "B" as const, hasGrade: true };
-  const reclaimProof = { isValid: true };
+  // Mock verification status - not used in lender page
+  // const kycStatus = { isVerified: true };
+  // const creditGrade = { grade: "B" as const, hasGrade: true };
+  // const reclaimProof = { isValid: true };
 
   const formatAmount = (amount: bigint, decimals: number = 6) => {
     // 1 USDC = 1 dollar (1 USDC = 10^6 units)
@@ -83,14 +74,32 @@ export default function LenderPage() {
       try {
         console.log("🔄 Loading lender data for address:", address);
         setIsLoading(true);
-        const [allRequests, userLendings] = await Promise.all([
+        const [allRequests, loanIds] = await Promise.all([
           contractService.getAllBorrowRequests(),
           contractService.getAllLoans(address),
         ]);
 
         console.log("📊 All requests loaded:", allRequests);
-        console.log("💰 User lendings loaded:", userLendings);
+        console.log("💰 User loan IDs loaded:", loanIds);
         setBorrowRequests(allRequests);
+
+        // Convert loan IDs to Lending objects
+        const userLendings: Lending[] = [];
+        for (const loanId of loanIds) {
+          const request = allRequests.find((r) => r.id === loanId);
+          if (request) {
+            userLendings.push({
+              requestId: loanId,
+              lender: address,
+              token: request.assetERC20Address,
+              amount: request.amount,
+              dueDate:
+                request.dueDate ||
+                Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+              borrower: request.borrower,
+            });
+          }
+        }
         setMyLendings(userLendings);
       } catch (error) {
         console.error("Error loading data:", error);
@@ -134,35 +143,16 @@ export default function LenderPage() {
     if (!address) return;
 
     try {
-      // Simulate USDC transfer (mock implementation)
-      const request = borrowRequests.find((r) => r.id === requestId);
-      if (!request) {
-        throw new Error("Request not found");
-      }
+      setFundingRequest({ id: requestId, amount });
 
-      // For demo purposes, we'll simulate the transfer
-      console.log(
-        `Simulating transfer of ${formatAmount(amount)} USDC to ${
-          request.borrower
-        }`
-      );
+      // Get contract config
+      const contractConfig = contractService.getContractConfig();
 
-      // Simulate transaction delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Update UI immediately (in real app, this would be done after transaction confirmation)
-      toast({
-        title: "Success!",
-        description: `Successfully funded ${formatAmount(amount)} USDC`,
-      });
-
-      // Refresh data
-      Promise.all([
-        contractService.getAllBorrowRequests(),
-        contractService.getAllLoans(address),
-      ]).then(([allRequests, userLendings]) => {
-        setBorrowRequests(allRequests);
-        setMyLendings(userLendings);
+      // Fund request using wagmi writeContract
+      writeContract({
+        ...contractConfig,
+        functionName: "createLoan",
+        args: [requestId],
       });
     } catch (error) {
       console.error("Error funding request:", error);
@@ -172,6 +162,7 @@ export default function LenderPage() {
           error instanceof Error ? error.message : "Failed to fund request",
         variant: "destructive",
       });
+      setFundingRequest(null);
     }
   };
 
@@ -184,20 +175,60 @@ export default function LenderPage() {
           description: "USDC approved for lending",
         });
         setPendingApproval(null);
+      } else if (fundingRequest) {
+        toast({
+          title: "Funding Successful!",
+          description: `Successfully funded ${formatAmount(
+            fundingRequest.amount
+          )} USDC`,
+        });
+
+        // Add to My Lendings immediately
+        const request = borrowRequests.find((r) => r.id === fundingRequest.id);
+        if (request) {
+          const newLending: Lending = {
+            requestId: fundingRequest.id,
+            lender: address,
+            token: request.assetERC20Address,
+            amount: fundingRequest.amount,
+            dueDate:
+              request.dueDate ||
+              Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+            borrower: request.borrower,
+          };
+          setMyLendings((prev) => [...prev, newLending]);
+        }
+
+        setFundingRequest(null);
+
+        // Refresh borrow requests to update funding status
+        contractService.getAllBorrowRequests().then(setBorrowRequests);
       }
     }
-  }, [isSuccess, toast, address, pendingApproval]);
+  }, [
+    isSuccess,
+    toast,
+    address,
+    pendingApproval,
+    fundingRequest,
+    borrowRequests,
+  ]);
 
   // Handle transaction error
   useEffect(() => {
     if (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to fund request",
+        description: error.message || "Transaction failed",
         variant: "destructive",
       });
+
+      // Reset funding request state on error
+      if (fundingRequest) {
+        setFundingRequest(null);
+      }
     }
-  }, [error, toast]);
+  }, [error, toast, fundingRequest]);
 
   if (!isConnected) {
     return (
@@ -262,7 +293,11 @@ export default function LenderPage() {
                         onFund={handleFund}
                         onApprove={handleApprove}
                         allowance={allowance}
-                        isPending={isPending || isConfirming}
+                        isPending={
+                          isPending ||
+                          isConfirming ||
+                          fundingRequest?.id === request.id
+                        }
                       >
                         <Badge
                           variant="secondary"
@@ -317,7 +352,7 @@ export default function LenderPage() {
                   <div key={index} className="text-sm font-medium">
                     {formatAmount(lending.amount)} borç verdim{" "}
                     {lending.borrower.slice(0, 6)}...
-                    {lending.borrower.slice(-4)}'e
+                    {lending.borrower.slice(-4)}&apos;e
                   </div>
                 ))
               )}

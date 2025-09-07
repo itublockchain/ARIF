@@ -1,6 +1,6 @@
 import { CONTRACT_ADDRESSES, CONTRACT_ABIS } from "./contracts";
 import { BorrowRequest, Loan, BorrowRequestExtended } from "./types";
-import { getContract, createPublicClient, http, parseUnits } from "viem";
+import { getContract, createPublicClient, http } from "viem";
 import { rise } from "./chains/rise";
 
 // Create public client
@@ -308,6 +308,25 @@ class ContractService {
       return true;
     } catch (error) {
       console.error("Error cancelling borrow request:", error);
+      return false;
+    }
+  }
+
+  // Fund a borrow request
+  async fundBorrowRequest(borrowID: bigint, amount: bigint): Promise<boolean> {
+    try {
+      console.log(
+        "💰 Funding borrow request:",
+        borrowID.toString(),
+        "Amount:",
+        amount.toString()
+      );
+
+      // This would be called from the frontend using wagmi writeContract
+      // For now, we'll just return true as the actual transaction will be handled by wagmi
+      return true;
+    } catch (error) {
+      console.error("Error funding borrow request:", error);
       return false;
     }
   }
