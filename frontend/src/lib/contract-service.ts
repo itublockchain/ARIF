@@ -74,13 +74,11 @@ class ContractService {
   // Get borrow request IDs for a borrower
   async getBorrowRequestIDs(borrower: `0x${string}`): Promise<bigint[]> {
     try {
-      console.log("🔍 Getting borrow request IDs for borrower:", borrower);
-
-      // Try to get all request IDs for this borrower using the mapping
+      // Try mapping approach first with limited attempts
       const requestIDs: bigint[] = [];
-      let index = BigInt(0);
+      const maxMappingAttempts = 5; // Limit attempts to prevent infinite loops
 
-      while (true) {
+      for (let index = BigInt(0); index < BigInt(maxMappingAttempts); index++) {
         try {
           const requestID = (await publicClient.readContract({
             address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
@@ -89,79 +87,60 @@ class ContractService {
             args: [borrower, index],
           })) as bigint;
 
-          console.log(
-            `📊 Request ID at index ${index.toString()}: ${requestID.toString()}`
-          );
-
-          // If we get a valid ID (not 0), add it to the list
           if (requestID && requestID > BigInt(0)) {
             requestIDs.push(requestID);
-            index++;
           } else {
             // No more requests for this borrower
             break;
           }
-        } catch (error) {
-          console.log(
-            `❌ Error reading request ID at index ${index.toString()}:`,
-            error
-          );
-          // No more requests for this borrower
+        } catch {
+          // If we get an error, it means this index doesn't exist
           break;
         }
       }
 
-      console.log("📊 Total request IDs found via mapping:", requestIDs.length);
-
       // If no requests found via mapping, fallback to checking all IDs
       if (requestIDs.length === 0) {
-        console.log(
-          "🔄 No requests found via mapping, falling back to checking all IDs..."
-        );
-        const nextID = (await publicClient.readContract({
-          address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
-          abi: CONTRACT_ABIS.RequestBook,
-          functionName: "nextID",
-          args: [],
-        })) as unknown as bigint;
+        try {
+          const nextID = (await publicClient.readContract({
+            address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
+            abi: CONTRACT_ABIS.RequestBook,
+            functionName: "nextID",
+            args: [],
+          })) as unknown as bigint;
 
-        console.log("📊 Next ID:", nextID.toString());
-
-        for (let i = BigInt(0); i < nextID; i++) {
-          try {
-            const requestData = (await publicClient.readContract({
-              address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
-              abi: CONTRACT_ABIS.RequestBook,
-              functionName: "borrowRequestByID",
-              args: [i],
-            })) as [
-              bigint,
-              bigint,
-              bigint,
-              bigint,
-              `0x${string}`,
-              `0x${string}`
-            ];
-            // Data from contract comes in array format [id, amount, deadline, overtime_interest, borrower, assetERC20Address]
-            const borrowerAddress = requestData[4]; // borrower is at index 4
-            console.log(
-              `🔍 Request ${i.toString()} borrower: ${borrowerAddress}, looking for: ${borrower}`
-            );
-            if (
-              borrowerAddress &&
-              borrowerAddress.toLowerCase() === borrower.toLowerCase()
-            ) {
-              console.log(`✅ Found matching request ID: ${i.toString()}`);
-              requestIDs.push(i);
+          for (let i = BigInt(0); i < nextID; i++) {
+            try {
+              const requestData = (await publicClient.readContract({
+                address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
+                abi: CONTRACT_ABIS.RequestBook,
+                functionName: "borrowRequestByID",
+                args: [i],
+              })) as [
+                bigint,
+                bigint,
+                bigint,
+                bigint,
+                `0x${string}`,
+                `0x${string}`
+              ];
+              // Data from contract comes in array format [id, amount, deadline, overtime_interest, borrower, assetERC20Address]
+              const borrowerAddress = requestData[4]; // borrower is at index 4
+              if (
+                borrowerAddress &&
+                borrowerAddress.toLowerCase() === borrower.toLowerCase()
+              ) {
+                requestIDs.push(i);
+              }
+            } catch {
+              // Request doesn't exist, continue
+              continue;
             }
-          } catch (error) {
-            console.log(`❌ Error reading request ${i.toString()}:`, error);
-            // Request doesn't exist, continue
           }
+        } catch (error) {
+          console.error("Error getting nextID:", error);
         }
       }
-
-      console.log("📊 Total request IDs found:", requestIDs.length);
       return requestIDs;
     } catch (error) {
       console.error("Error getting borrow request IDs:", error);
@@ -317,15 +296,12 @@ class ContractService {
     borrower: `0x${string}`
   ): Promise<BorrowRequestExtended[]> {
     try {
-      console.log("🔍 Getting borrow requests for borrower:", borrower);
       const requestIDs = await this.getBorrowRequestIDs(borrower);
-      console.log("📊 Found request IDs:", requestIDs);
       const requests: BorrowRequestExtended[] = [];
 
       for (const id of requestIDs) {
         try {
           const request = await this.getBorrowRequest(id);
-          console.log(`📋 Request ${id.toString()}:`, request);
 
           if (
             request &&
@@ -351,25 +327,15 @@ class ContractService {
                   request.overtime_interest
                 ),
               };
-              console.log("✅ Adding borrower request:", requestData);
               requests.push(requestData);
-            } else {
-              console.log("❌ Skipping cancelled request:", id.toString());
             }
-          } else {
-            console.log(
-              `❌ Invalid request data for ID ${id.toString()}, skipping`
-            );
           }
-        } catch (error) {
-          console.log(`❌ Error processing request ${id.toString()}:`, error);
+        } catch {
           // Continue with next request
+          continue;
         }
       }
 
-      // If no real data found, return empty array instead of mock data
-      // This prevents showing cancelled requests in mock data
-      console.log("📊 Total borrower requests found:", requests.length);
       return requests;
     } catch (error) {
       console.error("Error getting borrow requests by borrower:", error);
