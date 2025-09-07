@@ -6,6 +6,8 @@ contract RequestBook {
     struct BorrowRequest {
         uint id;
         uint amount;
+        uint deadline;
+        uint overtime_interest;
         address borrower;
         address assetERC20Address;
     }
@@ -26,13 +28,17 @@ contract RequestBook {
 
     uint public nextID;
 
-    function createBorrowRequest(uint amount, address assetERC20Address) public {
+    function createBorrowRequest(uint amount, uint deadline, uint overtime_interest, address assetERC20Address) public {
         uint id = nextID;
         nextID++;
+
+        require(deadline > block.timestamp, "zamanasimi");
 
         borrowRequestByID[id] = BorrowRequest({
             id: id,
             borrower: msg.sender,
+            deadline: deadline,
+            overtime_interest: overtime_interest,
             amount: amount,
             assetERC20Address: assetERC20Address
         });
@@ -66,6 +72,40 @@ contract RequestBook {
 
     function getAllLoans(address lender) public view returns (uint[] memory) {
         return loansByBorrowID[lender];
+    }
+
+    function repayLoan(uint borrowID) public {
+        require(loanByBorrowID[borrowID].isFilled, "It is not filled");
+        require(block.timestamp - borrowRequestByID[borrowID].deadline <= 14 days, "You are liquidated. Sorry.");
+
+        if( block.timestamp - borrowRequestByID[borrowID].deadline >= 9 days){
+        uint interest = borrowRequestByID[borrowID].overtime_interest * 5/2;
+
+        uint repayAmount = borrowRequestByID[borrowID].amount * (100+interest/100);
+        
+        bool success = IERC20(borrowRequestByID[borrowID].assetERC20Address).transferFrom(msg.sender, loanByBorrowID[borrowID].lender, repayAmount);
+        require(success, "repayLoan: Transferfrom Error, potantial allowance issue.");
+        return;
+       }
+
+       if( block.timestamp - borrowRequestByID[borrowID].deadline >= 6 days){
+        uint interest = borrowRequestByID[borrowID].overtime_interest * 2;
+        uint repayAmount = borrowRequestByID[borrowID].amount * (100+interest/100);
+
+        bool success = IERC20(borrowRequestByID[borrowID].assetERC20Address).transferFrom(msg.sender, loanByBorrowID[borrowID].lender, repayAmount);
+        require(success, "repayLoan: Transferfrom Error, potantial allowance issue.");
+        return;
+       }
+
+       if( block.timestamp - borrowRequestByID[borrowID].deadline >= 3 days){
+        uint interest = borrowRequestByID[borrowID].overtime_interest * 3/2;
+
+        uint repayAmount = borrowRequestByID[borrowID].amount * (100+interest/100);
+        
+        bool success = IERC20(borrowRequestByID[borrowID].assetERC20Address).transferFrom(msg.sender, loanByBorrowID[borrowID].lender, repayAmount);
+        require(success, "repayLoan: Transferfrom Error, potantial allowance issue.");
+        return;
+       }
     }
 
 }
