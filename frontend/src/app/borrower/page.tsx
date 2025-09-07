@@ -7,6 +7,7 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import { useKYCStatus } from "@/hooks/use-kyc-status";
+import { RiskScoreCard } from "@/components/RiskScoreCard";
 import {
   Card,
   CardContent,
@@ -586,6 +587,9 @@ export default function BorrowerPage() {
 
           {/* Right Column - Profile & Stats */}
           <div className="space-y-6">
+            {/* AI Risk Assessment */}
+            <RiskScoreCard />
+
             {/* Profile Section */}
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-4">

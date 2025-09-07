@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { User, DollarSign } from "lucide-react";
 import { FundDialog } from "@/components/FundDialog";
+import { RiskScoreCard } from "@/components/RiskScoreCard";
 import { contractService } from "@/lib/contract-service";
 import { useToast } from "@/hooks/use-toast";
 import { BorrowRequestExtended, Lending } from "@/lib/types";
@@ -416,6 +417,9 @@ export default function LenderPage() {
 
           {/* Right Column - Profile & My Lendings */}
           <div className="space-y-6">
+            {/* AI Risk Assessment */}
+            <RiskScoreCard />
+
             {/* Profile Section */}
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-4">

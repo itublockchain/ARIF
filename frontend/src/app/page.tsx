@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import Image from "next/image";
+import { Leaderboard } from "@/components/Leaderboard";
 
 export default function HomePage() {
   const { isConnected } = useAccount();
@@ -355,6 +356,24 @@ export default function HomePage() {
               <div className="text-4xl font-bold text-yellow-400">24/7</div>
               <div className="text-slate-300">Always Online</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Leaderboard Section */}
+      <div className="py-24 bg-slate-50 dark:bg-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center space-y-4 mb-16">
+            <h2 className="text-4xl font-bold text-slate-900 dark:text-slate-100">
+              USDC Minting Leaderboard
+            </h2>
+            <p className="text-xl text-slate-700 dark:text-slate-300">
+              Top minters on RISE L2 network
+            </p>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            <Leaderboard />
           </div>
         </div>
       </div>
