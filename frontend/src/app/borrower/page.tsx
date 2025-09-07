@@ -534,15 +534,11 @@ export default function BorrowerPage() {
                                 </h3>
                                 <Badge
                                   variant={
-                                    request.status === "Open"
-                                      ? "secondary"
-                                      : "default"
+                                    request.isFunded ? "default" : "secondary"
                                   }
                                   className="text-xs"
                                 >
-                                  {request.status === "Open"
-                                    ? "Open"
-                                    : request.status || "Unknown"}
+                                  {request.isFunded ? "Funded" : "Open"}
                                 </Badge>
                               </div>
                               <div className="flex items-center gap-4 text-sm text-slate-600">
@@ -577,7 +573,7 @@ export default function BorrowerPage() {
                               <Badge variant="outline" className="text-xs">
                                 Not: B
                               </Badge>
-                              {request.status === "Open" && (
+                              {!request.isFunded && (
                                 <Button
                                   variant="destructive"
                                   size="sm"
@@ -690,7 +686,7 @@ export default function BorrowerPage() {
                   </div>
                   <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <div className="text-2xl font-bold text-green-600">
-                      {myRequests.filter((r) => r.status === "Funded").length}
+                      {myRequests.filter((r) => r.isFunded).length}
                     </div>
                     <div className="text-xs text-slate-700 dark:text-slate-300">
                       Funded

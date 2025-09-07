@@ -63,11 +63,6 @@ export default function LenderPage() {
     return daysLeft > 0 ? `${daysLeft} days left` : "Overdue";
   };
 
-  const getFundedPercentage = (amount: bigint, funded: bigint) => {
-    if (!amount || amount === BigInt(0)) return 0;
-    return Number((funded * BigInt(100)) / amount);
-  };
-
   // Load data from mock contract
   useEffect(() => {
     const loadData = async () => {
@@ -326,58 +321,48 @@ export default function LenderPage() {
                                 : "Not specified"}
                             </span>
                           </div>
-
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-600 dark:text-slate-300">
-                                Funding Status
-                              </span>
-                              <span className="font-medium">
-                                {getFundedPercentage(
-                                  request.amount,
-                                  request.funded || BigInt(0)
-                                )}
-                                %
-                              </span>
-                            </div>
-                            <div className="w-full bg-slate-200 rounded-full h-2">
-                              <div
-                                className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                                style={{
-                                  width: `${getFundedPercentage(
-                                    request.amount,
-                                    request.funded || BigInt(0)
-                                  )}%`,
-                                }}
-                              ></div>
-                            </div>
-                          </div>
                         </div>
 
                         <div className="flex items-center gap-3 ml-6">
-                          <FundDialog
-                            request={request}
-                            onApprove={handleApprove}
-                            allowance={allowance}
-                            isPending={
-                              isPending ||
-                              isConfirming ||
-                              fundingRequest?.id === request.id
-                            }
-                          >
-                            <Button
-                              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium"
-                              disabled={
+                          {/* Only show fund button if request is not fully funded */}
+                          {!request.isFunded && (
+                            <FundDialog
+                              request={request}
+                              onApprove={handleApprove}
+                              allowance={allowance}
+                              isPending={
                                 isPending ||
                                 isConfirming ||
                                 fundingRequest?.id === request.id
                               }
+                              onFundSuccess={() => {
+                                // Refresh requests to update funding status
+                                contractService
+                                  .getAllBorrowRequests()
+                                  .then(setBorrowRequests);
+                              }}
                             >
-                              {fundingRequest?.id === request.id
-                                ? "Funding..."
-                                : "Fund"}
-                            </Button>
-                          </FundDialog>
+                              <Button
+                                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium"
+                                disabled={
+                                  isPending ||
+                                  isConfirming ||
+                                  fundingRequest?.id === request.id
+                                }
+                              >
+                                {fundingRequest?.id === request.id
+                                  ? "Funding..."
+                                  : "Fund"}
+                              </Button>
+                            </FundDialog>
+                          )}
+
+                          {/* Show "Fully Funded" badge when request is complete */}
+                          {request.isFunded && (
+                            <div className="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
+                              Fully Funded
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>

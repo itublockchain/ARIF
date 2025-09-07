@@ -22,6 +22,7 @@ interface FundDialogProps {
   allowance?: bigint;
   isPending?: boolean;
   children: React.ReactNode;
+  onFundSuccess?: () => void;
 }
 
 export function FundDialog({
@@ -30,6 +31,7 @@ export function FundDialog({
   allowance,
   isPending,
   children,
+  onFundSuccess,
 }: FundDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isFunding, setIsFunding] = useState(false);
@@ -55,8 +57,13 @@ export function FundDialog({
         title: "Approval Successful!",
         description: `Approved ${formatAmount(
           remainingAmount
-        )} USDC for lending`,
+        )} USDC, now funding request...`,
       });
+
+      // After successful approval, automatically start funding
+      setTimeout(() => {
+        handleFund();
+      }, 1000); // Wait 1 second for approval to be processed
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to approve USDC";
@@ -80,6 +87,9 @@ export function FundDialog({
 
       // Use real contract call instead of mock
       await fundBorrowRequest(request.id);
+
+      // Call success callback if provided
+      onFundSuccess?.();
 
       setIsOpen(false);
     } catch (err) {
@@ -137,10 +147,11 @@ export function FundDialog({
             <div className="bg-yellow-50 dark:bg-yellow-950 p-4 rounded-lg">
               <div className="text-sm text-yellow-800 dark:text-yellow-200">
                 <strong>Approval Required:</strong> You need to approve USDC
-                spending first
+                spending first, then funding will start automatically
               </div>
               <div className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">
-                This allows the contract to transfer your USDC tokens
+                This allows the contract to transfer your USDC tokens and create
+                the loan
               </div>
             </div>
           ) : (
@@ -170,8 +181,8 @@ export function FundDialog({
                 className="flex-1"
               >
                 {isApproving || isPending
-                  ? "Approving..."
-                  : `Approve ${formatAmount(remainingAmount)} USDC`}
+                  ? "Approving & Funding..."
+                  : `Approve & Fund ${formatAmount(remainingAmount)} USDC`}
               </Button>
             ) : (
               <Button

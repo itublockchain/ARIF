@@ -263,7 +263,7 @@ class ContractService {
               deadline: request.deadline,
               overtime_interest: request.overtime_interest,
               assetERC20Address: request.assetERC20Address,
-              status: loan?.isFilled ? "Funded" : "Open",
+              isFunded: loan?.isFilled || false,
               funded: loan?.isFilled ? request.amount : BigInt(0),
               isOverdue:
                 Number(request.deadline) < Math.floor(Date.now() / 1000),
@@ -318,7 +318,7 @@ class ContractService {
             if (!isCancelled) {
               const requestData: BorrowRequestExtended = {
                 ...request,
-                status: loan?.isFilled ? "Funded" : "Open",
+                isFunded: loan?.isFilled || false,
                 funded: loan?.isFilled ? request.amount : BigInt(0),
                 isOverdue:
                   Number(request.deadline) < Math.floor(Date.now() / 1000),

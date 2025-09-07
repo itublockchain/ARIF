@@ -1,4 +1,4 @@
-import { BorrowRequestExtended, Lending, RequestStatus } from "./types";
+import { BorrowRequestExtended, Lending } from "./types";
 
 // Mock contract service - will be replaced with real contract calls
 class MockContractService {
@@ -26,7 +26,7 @@ class MockContractService {
       dueDate,
       funded: 0n,
       maxAprBps: overtimeInterestBps / 100, // Convert basis points to percentage
-      status: "Open" as RequestStatus,
+      isFunded: false,
       isOverdue: false,
       currentInterestRate: overtimeInterestBps,
     };
@@ -50,8 +50,8 @@ class MockContractService {
       throw new Error("Request not found");
     }
 
-    if (request.status !== "Open") {
-      throw new Error("Request is not open for funding");
+    if (request.isFunded) {
+      throw new Error("Request is already funded");
     }
 
     const remainingAmount = request.amount - (request.funded || 0n);
@@ -64,7 +64,7 @@ class MockContractService {
 
     // If fully funded, change status
     if (request.funded >= request.amount) {
-      request.status = "Funded" as RequestStatus;
+      request.isFunded = true;
     }
 
     // Create lending record
@@ -100,11 +100,11 @@ class MockContractService {
       throw new Error("Only the borrower can accept the request");
     }
 
-    if (request.status !== "Funded") {
+    if (!request.isFunded) {
       throw new Error("Request is not fully funded");
     }
 
-    request.status = "Accepted" as RequestStatus;
+    // Request is accepted (no status change needed, just isFunded remains true)
 
     // Simulate blockchain delay
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -126,11 +126,11 @@ class MockContractService {
       throw new Error("Only the borrower can repay the request");
     }
 
-    if (request.status !== "Accepted") {
-      throw new Error("Request is not in accepted state");
+    if (!request.isFunded) {
+      throw new Error("Request is not funded");
     }
 
-    request.status = "Repaid" as RequestStatus;
+    // Request is repaid (no status change needed, just isFunded remains true)
 
     // Simulate blockchain delay
     await new Promise((resolve) => setTimeout(resolve, 1000));

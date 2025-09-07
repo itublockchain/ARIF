@@ -1,12 +1,5 @@
 export type CreditGrade = "A" | "B" | "C";
 
-export type RequestStatus =
-  | "Open"
-  | "Funded"
-  | "Accepted"
-  | "Repaid"
-  | "Canceled";
-
 // Real contract BorrowRequest structure
 export type BorrowRequest = {
   id: bigint;
@@ -29,7 +22,7 @@ export type BorrowRequestExtended = BorrowRequest & {
   dueDate?: number; // unix seconds (for frontend display)
   funded?: bigint; // raw (for frontend display)
   maxAprBps?: number; // opsiyon (for frontend display)
-  status: RequestStatus; // computed status
+  isFunded: boolean; // true if fully funded, false if not
   isOverdue?: boolean; // computed from deadline
   currentInterestRate?: number; // computed based on overdue days
 };
