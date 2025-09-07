@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 
+// Simple in-memory rate limiting
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 10; // 10 requests per minute per inquiryId
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -7,6 +12,31 @@ export async function GET(req: Request) {
 
     if (!inquiryId) {
       return NextResponse.json({ error: "missing inquiryId" }, { status: 400 });
+    }
+
+    // Rate limiting check
+    const now = Date.now();
+    const key = inquiryId;
+    const rateLimit = rateLimitMap.get(key);
+
+    if (rateLimit) {
+      if (now < rateLimit.resetTime) {
+        if (rateLimit.count >= RATE_LIMIT_MAX_REQUESTS) {
+          return NextResponse.json(
+            {
+              error: "Rate limit exceeded. Please wait before checking again.",
+              retryAfter: Math.ceil((rateLimit.resetTime - now) / 1000),
+            },
+            { status: 429 }
+          );
+        }
+        rateLimit.count++;
+      } else {
+        // Reset the counter
+        rateLimitMap.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+      }
+    } else {
+      rateLimitMap.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
     }
 
     const apiKey = process.env.PERSONA_API_KEY;

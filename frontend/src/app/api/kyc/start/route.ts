@@ -50,6 +50,29 @@ export async function GET(req: Request) {
     if (!inquiryResponse.ok) {
       const errorData = await inquiryResponse.json();
       console.error("Persona API error:", errorData);
+      
+      // Handle specific error cases
+      if (inquiryResponse.status === 429) {
+        return NextResponse.json(
+          { 
+            error: "Rate limit exceeded. Please try again in a few minutes.",
+            details: errorData,
+            retryAfter: 60 // seconds
+          },
+          { status: 429 }
+        );
+      }
+      
+      if (inquiryResponse.status === 400 && errorData.errors?.[0]?.detail?.includes("already exists")) {
+        return NextResponse.json(
+          { 
+            error: "KYC inquiry already exists for this address. Please check your existing inquiry.",
+            details: errorData
+          },
+          { status: 400 }
+        );
+      }
+      
       return NextResponse.json(
         { error: "Failed to create inquiry", details: errorData },
         { status: inquiryResponse.status }

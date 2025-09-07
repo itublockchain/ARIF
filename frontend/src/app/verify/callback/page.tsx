@@ -51,6 +51,18 @@ function VerifyCallbackContent() {
         const data = await response.json();
 
         if (!response.ok) {
+          if (response.status === 429) {
+            // Rate limit exceeded, wait longer before retry
+            if (retryCount < 4) {
+              const retryAfter = data.retryAfter || 30; // Default 30 seconds
+              setTimeout(() => {
+                checkKYCStatus(inquiryId, retryCount + 1);
+              }, retryAfter * 1000);
+              return;
+            } else {
+              throw new Error("Rate limit exceeded. Please try again later.");
+            }
+          }
           throw new Error(data.error || "Failed to check KYC status");
         }
 
@@ -114,11 +126,11 @@ function VerifyCallbackContent() {
           setStatus("pending");
           setProgress(50);
 
-          // Retry logic: check again after 5 seconds, max 12 times (60 seconds total)
-          if (retryCount < 12) {
+          // Retry logic: check again after 15 seconds, max 4 times (60 seconds total)
+          if (retryCount < 4) {
             setTimeout(() => {
               checkKYCStatus(inquiryId, retryCount + 1);
-            }, 5000);
+            }, 15000); // 15 seconds instead of 5
           } else {
             setError(
               "Verification is taking longer than expected. Please try again later."
