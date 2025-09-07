@@ -200,10 +200,21 @@ export default function LenderPage() {
           console.log("✅ Added new lending to My Lendings:", newLending);
         }
 
+        // Immediately update the request as funded in local state
+        setBorrowRequests((prev) =>
+          prev.map((req) =>
+            req.id === fundingRequest.id
+              ? { ...req, isFunded: true, funded: req.amount }
+              : req
+          )
+        );
+
         setFundingRequest(null);
 
-        // Refresh borrow requests to update funding status
-        contractService.getAllBorrowRequests().then(setBorrowRequests);
+        // Also refresh from contract to ensure consistency
+        setTimeout(() => {
+          contractService.getAllBorrowRequests().then(setBorrowRequests);
+        }, 1000); // Wait 1 second for blockchain to update
       }
     }
   }, [
@@ -293,22 +304,34 @@ export default function LenderPage() {
             ) : (
               <div className="space-y-4">
                 {(() => {
-                  // STRICT FILTERING: Only show requests that are NOT funded
-                  const unfundedRequests = borrowRequests.filter(
-                    (request) => request.isFunded === false
-                  );
+                  // ULTRA STRICT FILTERING: Only show requests that are NOT funded
+                  const unfundedRequests = borrowRequests.filter((request) => {
+                    const isNotFunded = request.isFunded === false;
+                    const hasNoFunding =
+                      !request.funded || request.funded === BigInt(0);
+                    const result = isNotFunded && hasNoFunding;
+
+                    console.log(
+                      `🔍 Request ${request.id.toString()}: isFunded=${
+                        request.isFunded
+                      }, funded=${request.funded?.toString()}, result=${result}`
+                    );
+                    return result;
+                  });
                   console.log(
                     "🔍 All requests:",
                     borrowRequests.map((r) => ({
                       id: r.id.toString(),
                       isFunded: r.isFunded,
+                      funded: r.funded?.toString(),
                     }))
                   );
                   console.log(
-                    "✅ Unfunded requests (STRICT FILTER):",
+                    "✅ Unfunded requests (ULTRA STRICT FILTER):",
                     unfundedRequests.map((r) => ({
                       id: r.id.toString(),
                       isFunded: r.isFunded,
+                      funded: r.funded?.toString(),
                     }))
                   );
                   return unfundedRequests;
@@ -367,10 +390,25 @@ export default function LenderPage() {
                                 setFundingRequest(null);
                               }}
                               onFundSuccess={() => {
-                                // Refresh requests to update funding status
-                                contractService
-                                  .getAllBorrowRequests()
-                                  .then(setBorrowRequests);
+                                // Immediately update the request as funded in local state
+                                setBorrowRequests((prev) =>
+                                  prev.map((req) =>
+                                    req.id === request.id
+                                      ? {
+                                          ...req,
+                                          isFunded: true,
+                                          funded: req.amount,
+                                        }
+                                      : req
+                                  )
+                                );
+
+                                // Also refresh from contract to ensure consistency
+                                setTimeout(() => {
+                                  contractService
+                                    .getAllBorrowRequests()
+                                    .then(setBorrowRequests);
+                                }, 1000); // Wait 1 second for blockchain to update
                               }}
                             >
                               <Button
