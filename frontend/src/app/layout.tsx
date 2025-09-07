@@ -10,14 +10,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
-        className="min-h-dvh bg-background text-foreground"
+        className="min-h-dvh bg-slate-900 text-slate-100 dark"
         suppressHydrationWarning
       >
         <Providers>
           <Navbar />
-          <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+          <main className="min-h-screen">{children}</main>
           <Toaster />
         </Providers>
       </body>

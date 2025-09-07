@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CreditCard, User, X } from "lucide-react";
+import { CreditCard, User, X, Shield } from "lucide-react";
 import { contractService } from "@/lib/contract-service";
 import { useToast } from "@/hooks/use-toast";
 import { BorrowRequestExtended } from "@/lib/types";
@@ -292,185 +292,401 @@ export default function BorrowerPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-center">BORROWER PAGE</h1>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Request Form & My Requests */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Borrow Request Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Create Request Here</CardTitle>
-              <CardDescription>Create a new loan request</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-4"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">
-                      Amount {selectedToken ? `(${selectedToken.symbol})` : ""}
-                    </label>
-                    <Input
-                      placeholder="10000"
-                      {...form.register("amount")}
-                      type="number"
-                      disabled={!canCreateRequest}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium">Token</label>
-                    <Select
-                      onValueChange={(value) => form.setValue("token", value)}
-                      disabled={!canCreateRequest}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a token" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableTokens.map((token) => (
-                          <SelectItem key={token.symbol} value={token.symbol}>
-                            {token.symbol} - {token.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium">Due Date</label>
-                    <Input
-                      type="datetime-local"
-                      {...form.register("dueDate")}
-                      disabled={!canCreateRequest}
-                    />
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={!canCreateRequest || isPending || isConfirming}
-                  size="lg"
-                >
-                  {isPending
-                    ? "Confirming..."
-                    : isConfirming
-                    ? "Creating..."
-                    : "Create Borrow Request"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* My Requests */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                My Requests
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isLoading ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  Loading requests...
-                </div>
-              ) : myRequests.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  No requests yet
-                </div>
-              ) : (
-                myRequests.map((request) => {
-                  if (!request) return null;
-
-                  return (
-                    <div
-                      key={request.id?.toString() || Math.random().toString()}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div>
-                        <div className="font-medium">
-                          I want {formatAmount(request.amount)} USDC
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Due:{" "}
-                          {request.dueDate
-                            ? formatDueDate(request.dueDate)
-                            : "No due date"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Funded:{" "}
-                          {getFundedPercentage(request.amount, request.funded)}%
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">Score: 87</Badge>
-                        <Badge
-                          variant={
-                            request.status === "Open" ? "secondary" : "default"
-                          }
-                        >
-                          {request.status || "Unknown"}
-                        </Badge>
-                        {request.status === "Open" && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleCancelRequest(request.id)}
-                            disabled={
-                              cancellingRequest === request.id ||
-                              isPending ||
-                              isConfirming
-                            }
-                          >
-                            <X className="h-3 w-3 mr-1" />
-                            {cancellingRequest === request.id
-                              ? "Cancelling..."
-                              : "Cancel"}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header Section */}
+        <div className="text-center space-y-4 mb-12">
+          <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium">
+            <CreditCard className="h-4 w-4" />
+            Borrower Panel
+          </div>
+          <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-100">
+            Create Credit Request
+          </h1>
+          <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+            Complete your KYC verification, create income proof, and open your
+            credit request
+          </p>
         </div>
 
-        {/* Right Column - Profile & My Debts */}
-        <div className="space-y-4">
-          {/* Profile Section */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold">Profile</CardTitle>
-              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                <User className="h-4 w-4 text-gray-600" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm text-muted-foreground">
-                {address?.slice(0, 6)}...{address?.slice(-4)}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Request Form & My Requests */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Verification Status */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  Verification Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        kycStatus
+                          ? "bg-green-100 text-green-600"
+                          : "bg-slate-200 text-slate-400"
+                      }`}
+                    >
+                      <User className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-sm text-slate-900 dark:text-slate-100">
+                        KYC Verification
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {kycStatus ? "Completed" : "Pending"}
+                      </div>
+                    </div>
+                  </div>
 
-          {/* My Debts Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">My Debts</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="text-sm font-medium">I owe 10 to x</div>
-              <div className="text-sm font-medium">I owe 5 to y</div>
-              <div className="text-sm font-medium">I owe 15 to z</div>
-            </CardContent>
-          </Card>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        creditGrade.hasGrade
+                          ? "bg-green-100 text-green-600"
+                          : "bg-slate-200 text-slate-400"
+                      }`}
+                    >
+                      <Badge className="text-xs">B</Badge>
+                    </div>
+                    <div>
+                      <div className="font-medium text-sm text-slate-900 dark:text-slate-100">
+                        Credit Score
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {creditGrade.hasGrade
+                          ? `Grade ${creditGrade.grade}`
+                          : "Pending"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        reclaimProof.isValid
+                          ? "bg-green-100 text-green-600"
+                          : "bg-slate-200 text-slate-400"
+                      }`}
+                    >
+                      <Shield className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-sm text-slate-900 dark:text-slate-100">
+                        Income Proof
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {reclaimProof.isValid ? "Verified" : "Pending"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Borrow Request Form */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  New Credit Request
+                </CardTitle>
+                <CardDescription className="text-slate-600 dark:text-slate-300">
+                  Set your credit amount, term, and maximum interest rate
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-6"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        Amount{" "}
+                        {selectedToken ? `(${selectedToken.symbol})` : ""}
+                      </label>
+                      <Input
+                        placeholder="10000"
+                        {...form.register("amount")}
+                        type="number"
+                        disabled={!canCreateRequest}
+                        className="h-12 text-lg"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        Token
+                      </label>
+                      <Select
+                        onValueChange={(value) => form.setValue("token", value)}
+                        disabled={!canCreateRequest}
+                      >
+                        <SelectTrigger className="h-12 text-lg">
+                          <SelectValue placeholder="Select token" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableTokens.map((token) => (
+                            <SelectItem key={token.symbol} value={token.symbol}>
+                              {token.symbol} - {token.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        Due Date
+                      </label>
+                      <Input
+                        type="datetime-local"
+                        {...form.register("dueDate")}
+                        disabled={!canCreateRequest}
+                        className="h-12 text-lg"
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full h-14 text-lg font-semibold bg-blue-600 hover:bg-blue-700 rounded-xl"
+                    disabled={!canCreateRequest || isPending || isConfirming}
+                  >
+                    {isPending
+                      ? "Confirming..."
+                      : isConfirming
+                      ? "Creating..."
+                      : "Create Credit Request"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* My Requests */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-slate-100">
+                  <CreditCard className="h-5 w-5" />
+                  My Credit Requests
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoading ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    Loading requests...
+                  </div>
+                ) : myRequests.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <CreditCard className="h-12 w-12 mx-auto mb-4 text-slate-300" />
+                    <p className="text-lg font-medium">
+                      No credit requests yet
+                    </p>
+                    <p className="text-sm">
+                      Fill out the form above to create your first request
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {myRequests.map((request) => {
+                      if (!request) return null;
+
+                      return (
+                        <div
+                          key={
+                            request.id?.toString() || Math.random().toString()
+                          }
+                          className="p-6 border border-slate-200 rounded-xl hover:shadow-md transition-all duration-200 bg-white"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-3">
+                                <h3 className="text-lg font-semibold text-slate-900">
+                                  {formatAmount(request.amount)} USDC
+                                </h3>
+                                <Badge
+                                  variant={
+                                    request.status === "Open"
+                                      ? "secondary"
+                                      : "default"
+                                  }
+                                  className="text-xs"
+                                >
+                                  {request.status === "Open"
+                                    ? "Open"
+                                    : request.status || "Unknown"}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-slate-600">
+                                <span>
+                                  Due:{" "}
+                                  {request.dueDate
+                                    ? formatDueDate(request.dueDate)
+                                    : "Not specified"}
+                                </span>
+                                <span>
+                                  Funded:{" "}
+                                  {getFundedPercentage(
+                                    request.amount,
+                                    request.funded
+                                  )}
+                                  %
+                                </span>
+                              </div>
+                              <div className="w-full bg-slate-200 rounded-full h-2">
+                                <div
+                                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                  style={{
+                                    width: `${getFundedPercentage(
+                                      request.amount,
+                                      request.funded
+                                    )}%`,
+                                  }}
+                                ></div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                Not: B
+                              </Badge>
+                              {request.status === "Open" && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleCancelRequest(request.id)
+                                  }
+                                  disabled={
+                                    cancellingRequest === request.id ||
+                                    isPending ||
+                                    isConfirming
+                                  }
+                                  className="text-xs"
+                                >
+                                  <X className="h-3 w-3 mr-1" />
+                                  {cancellingRequest === request.id
+                                    ? "Cancelling..."
+                                    : "Cancel"}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column - Profile & Stats */}
+          <div className="space-y-6">
+            {/* Profile Section */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  <User className="h-5 w-5" />
+                  Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                    <User className="h-5 w-5 text-blue-600 dark:text-blue-300" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-slate-900 dark:text-slate-100">
+                      {address?.slice(0, 6)}...{address?.slice(-4)}
+                    </div>
+                    <div className="text-sm text-slate-600 dark:text-slate-300">
+                      Wallet Address
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600 dark:text-slate-300">
+                      KYC Status
+                    </span>
+                    <Badge
+                      variant={kycStatus ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {kycStatus ? "Verified" : "Pending"}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600 dark:text-slate-300">
+                      Credit Score
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      {creditGrade.grade}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600 dark:text-slate-300">
+                      Income Proof
+                    </span>
+                    <Badge
+                      variant={reclaimProof.isValid ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {reclaimProof.isValid ? "Verified" : "Pending"}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Stats Section */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Statistics
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {myRequests.length}
+                    </div>
+                    <div className="text-xs text-slate-700 dark:text-slate-300">
+                      Total Requests
+                    </div>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">
+                      {myRequests.filter((r) => r.status === "Funded").length}
+                    </div>
+                    <div className="text-xs text-slate-700 dark:text-slate-300">
+                      Funded
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-200">
+                  <div className="text-sm text-slate-600 dark:text-slate-300 mb-2">
+                    Active Debts
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                      10,000 USDC - 15 days left
+                    </div>
+                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                      5,000 USDC - 30 days left
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
