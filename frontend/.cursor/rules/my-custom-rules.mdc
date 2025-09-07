@@ -1,0 +1,177 @@
+
+# ZK-P2P Credit — Cursor Rules
+# Context: Next.js (App Router) + Bun + wagmi/viem + RainbowKit + Reclaim + EAS + Hardhat (toolbox-viem) on RISE Testnet.
+# Goal: 24 saatte demo-odaklı, on-chain P2P kredi talebi pazarı (borrower talep açar, lender’lar kısmi fonlar). KYC & ZK eşik kanıtı zorunlu.
+
+project:
+  name: arif
+  language: typescript
+  packageManager: bun
+  framework: nextjs
+  router: app
+  style: tailwind + shadcn
+  chain: RISE testnet (RPC/env üzerinden)
+  design-principles:
+    - MVP’yi çalıştır; gereksiz soyutlamadan kaçın.
+    - Her PR/commit derlenebilir ve tip hatasız olsun.
+    - Tüm zincir etkileşimleri viem üstünden; wagmi ile React bağlama.
+    - PII saklama: yok. KYC ve risk bilgisi attestation olarak zincirde.
+
+directories:
+  contracts: contracts/
+  frontend: src/
+  abi: abi/
+  typechain: typechain-types/
+  pages:
+    - src/app/page.tsx
+    - src/app/verify/page.tsx          # Reclaim Web SDK akışı
+    - src/app/borrow/new/page.tsx      # Talep aç
+    - src/app/requests/page.tsx        # Pazaryeri
+    - src/app/request/[id]/page.tsx    # Talep detay
+  libs:
+    - src/lib/wagmi.ts
+    - src/lib/chains/rise.ts
+    - src/lib/contracts.ts
+    - src/lib/reclaim.ts
+    - src/lib/eas.ts
+    - src/lib/paymaster.ts # optional
+
+env:
+  require:
+    - NEXT_PUBLIC_RISE_RPC
+    - NEXT_PUBLIC_CHAIN_ID
+    - NEXT_PUBLIC_EAS_ADDRESS
+    - NEXT_PUBLIC_EAS_SCHEMA_REGISTRY
+    - NEXT_PUBLIC_EAS_SCHEMA_KYC
+    - NEXT_PUBLIC_EAS_SCHEMA_GRADE
+    - NEXT_PUBLIC_RECLAIM_APP_ID
+    - NEXT_PUBLIC_RECLAIM_PROVIDER
+  rules:
+    - Asla .env içeriğini commit’leme.
+    - Zincir adreslerini yalnızca src/lib/contracts.ts üzerinden import et.
+
+stack:
+  frontend:
+    - next@latest (app router)
+    - wagmi v2 + viem
+    - rainbowkit
+    - @tanstack/react-query
+  identity:
+    - @reclaimprotocol/js-sdk (Web SDK; verifyProof yardımcıları)
+    - EAS SDK (@ethereum-attestation-service/eas-sdk)
+  contracts:
+    - hardhat + @nomicfoundation/hardhat-toolbox-viem
+    - openzeppelin/contracts (SafeERC20, ReentrancyGuard)
+  gasless:
+    - ERC-4337 paymaster (opsiyonel; timeboxed; env ile kapat/aç)
+
+feature-spec:
+  # On-chain akış (RequestBook)
+  requestBook:
+    functions:
+      - createRequest(amount, tenorDays, maxAPR, gradeRef)
+      - fund(id, amount)                   # çoklu lender
+      - accept(id)                         # borrower onayı
+      - drawdown(id)                       # escrow -> borrower
+      - repay(id)                          # borrower öder
+      - claim(id)                          # lender pro-rata tahsil
+    invariants:
+      - only KYC_PASSED && CREDIT_GRADE ok ise createRequest
+      - fund toplamı amount’ı aşamaz
+      - accept öncesi drawdown yapılamaz
+      - repay tamamlanmadan claim yapılamaz
+    events:
+      - RequestCreated, Funded, Accepted, Drawdown, Repaid, Claimed, Canceled
+    security:
+      - CEI (Checks-Effects-Interactions) uygula
+      - ReentrancyGuard ve pull-payment (claim) modeli
+      - SafeERC20 kullan
+
+  attestations:
+    - KYC_PASSED(bool passed, bytes32 nameHash)
+    - CREDIT_GRADE(bytes1 grade)   # 'A'|'B'|'C'
+    - Attestation’ları EAS üzerinden yaz/oku; PII zincire yazma.
+
+  zk-proof:
+    source: Reclaim (Papara)
+    proofs:
+      - income_threshold: "monthly_income >= X"
+      - balance_threshold: "balance >= 10 TRY"
+    flow:
+      - Web SDK ile session oluştur (QR/tap) -> proof al
+      - backend’te verifyProof() ile doğrula (eksen: imza/nonce)
+      - on-chain: ReclaimVerifier.sol adapter’ı ile kanıt doğrulaması
+    privacy:
+      - Ham veri saklama yok; yalnızca eşik kanıtı.
+
+  ai-risk:
+    service: /api/score (server)
+    input:
+      - reclaim signals (income_ok, balance_ok)
+      - on-chain sinyaller (cüzdan yaşı, stable akışı - basit)
+    output:
+      - grade: 'A'|'B'|'C'
+      - reason: kısa açıklama (UI tooltips)
+    write:
+      - CREDIT_GRADE attestation (EAS)
+
+  ui:
+    requirements:
+      - “KYC → ZK Proof → Grade” adımları bitmeden talep açma tuşu pasif
+      - Pazaryeri filtreleri: tenor, grade, maxAPR
+      - Progress bar: % funding
+      - Tx toast’ları (optimistic) — Shreds hissi
+
+coding-rules:
+  - Typescript strict; any yasak (gerekliyse tip tanımla).
+  - Viem ile contract read/write: publicClient / walletClient pattern.
+  - Wagmi hooks (useAccount, useReadContract, useWriteContract) kullan.
+  - UI bileşenlerini küçük ve saf tut; veri fetch’i server actions veya TanStack Query.
+  - Tüm zincir adresleri tek kaynaktan: src/lib/contracts.ts.
+
+solidity-rules:
+  - SPDX + pragma >=0.8.20
+  - OZ SafeERC20, ReentrancyGuard, Ownable yalnızca gerektiğinde
+  - require mesajları açık ve kısa
+  - Uints: amount: uint256; tenor: uint32 (gün sayısı)
+  - Faiz/APR v1’de sabit veya maxAPR sınırıyla doğrulanır
+  - Time: block.timestamp; overflow yok; grace period sabit tut
+
+testing:
+  minimal:
+    - create/fund/accept/drawdown(mutlu yol)
+    - repay/claim dağıtımı
+    - EAS gate reddi (KYC yoksa createRequest revert)
+    - fund overflow revert
+  command:
+    - bunx hardhat test
+
+scaffolding:
+  when: "Yeni sayfa veya kontrat eklerken"
+  do:
+    - Dosyaları yukarıdaki klasör hiyerarşisine yerleştir.
+    - ABI’yi /abi klasörüne export et; src/lib/contracts.ts’i güncelle.
+    - Gerekirse tipleri typechain-types üzerinden import et.
+
+commands:
+  dev: "bun dev"
+  build: "bun run build && bun start"
+  compile: "bunx hardhat compile"
+  deploy: "bunx hardhat run hardhat/deploy/00_deploy.ts --network riseTestnet"
+
+commits:
+  style: "feat:, fix:, chore:, contracts:, ui:, docs:"
+  examples:
+    - "contracts: add RequestBook with fund/accept/drawdown/repay/claim"
+    - "ui: request details page with progress + actions"
+    - "feat: Reclaim Web SDK flow + on-chain verify adapter"
+
+guardrails:
+  - Sırlar/.env commit’lenmez.
+  - Kullanıcı adı/soyadı gibi PII client’ta tutulmaz; yalnız hash/attestation.
+  - AI kararı tek başına fonlama/çekimi tetiklemez; yalnızca koşulları belirler.
+  - Hata durumlarında kullanıcıya düz Türkçe açıklama göster.
+
+acceptance-criteria:
+  - Demo akışı: KYC → Reclaim proof → EAS grade → createRequest → multi-fund → accept → drawdown → repay → claim (hepsi RISE testnet).
+  - README’de: adresler, env anahtarları, 90 sn video linki, track eşlemesi.
