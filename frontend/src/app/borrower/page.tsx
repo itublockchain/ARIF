@@ -301,7 +301,7 @@ export default function BorrowerPage() {
           {/* Borrow Request Form */}
           <Card>
             <CardHeader>
-              <CardTitle>Burada istek acabilcek</CardTitle>
+              <CardTitle>Create Request Here</CardTitle>
               <CardDescription>Create a new loan request</CardDescription>
             </CardHeader>
             <CardContent>
@@ -395,7 +395,7 @@ export default function BorrowerPage() {
                     >
                       <div>
                         <div className="font-medium">
-                          {formatAmount(request.amount)} USDC istiyom
+                          I want {formatAmount(request.amount)} USDC
                         </div>
                         <div className="text-sm text-muted-foreground">
                           Due:{" "}
@@ -448,7 +448,7 @@ export default function BorrowerPage() {
           {/* Profile Section */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold">Profil</CardTitle>
+              <CardTitle className="text-lg font-semibold">Profile</CardTitle>
               <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
                 <User className="h-4 w-4 text-gray-600" />
               </div>
@@ -466,9 +466,9 @@ export default function BorrowerPage() {
               <CardTitle className="text-lg font-semibold">My Debts</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="text-sm font-medium">10 borcum var x&apos;e</div>
-              <div className="text-sm font-medium">5 borcum var y&apos;ye</div>
-              <div className="text-sm font-medium">15 borcum var z&apos;ye</div>
+              <div className="text-sm font-medium">I owe 10 to x</div>
+              <div className="text-sm font-medium">I owe 5 to y</div>
+              <div className="text-sm font-medium">I owe 15 to z</div>
             </CardContent>
           </Card>
         </div>

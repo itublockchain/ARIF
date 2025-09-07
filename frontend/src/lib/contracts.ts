@@ -5,7 +5,7 @@ export const CONTRACT_ADDRESSES = {
   RequestBook: "0xc70Cfbddb71B7b5478C14384f6D98aa07e86fc18", // Real deployed contract
   ReclaimVerifier: "0x0000000000000000000000000000000000000000",
   AttestationReader: "0x0000000000000000000000000000000000000000",
-  TestUSDC: "0x1234567890abcdef1234567890abcdef12345678", // Mock USDC address - RISE testnet'te gerçek USDC adresi olmalı
+  TestUSDC: "0x1234567890abcdef1234567890abcdef12345678", // Mock USDC address - should be real USDC address on RISE testnet
 } as const;
 
 // ERC20 ABI for USDC

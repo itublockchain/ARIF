@@ -41,7 +41,7 @@ class ContractService {
         args: [borrowID],
       });
 
-      // Contract'tan gelen veri array formatında [id, amount, borrower, assetERC20Address]
+      // Data from contract comes in array format [id, amount, borrower, assetERC20Address]
       return {
         id: requestData[0],
         borrower: requestData[2],
@@ -90,7 +90,7 @@ class ContractService {
             functionName: "borrowRequestByID",
             args: [i],
           });
-          // Contract'tan gelen veri array formatında [id, amount, borrower, assetERC20Address]
+          // Data from contract comes in array format [id, amount, borrower, assetERC20Address]
           const borrowerAddress = requestData[2];
           if (
             borrowerAddress &&
@@ -159,7 +159,7 @@ class ContractService {
       console.log("📊 Next ID:", nextID.toString());
       const requests: BorrowRequestExtended[] = [];
 
-      // nextID 0 ise hiç request yok
+      // If nextID is 0, there are no requests
       if (nextID === BigInt(0)) {
         console.log("📊 No requests found (nextID = 0)");
         return [];
@@ -176,7 +176,7 @@ class ContractService {
           });
           console.log("📋 Request data:", requestData);
 
-          // Contract'tan gelen veri array formatında [id, amount, borrower, assetERC20Address]
+          // Data from contract comes in array format [id, amount, borrower, assetERC20Address]
           const request = {
             id: requestData[0],
             amount: requestData[1],
@@ -187,7 +187,7 @@ class ContractService {
           console.log("📋 Raw request data:", requestData);
           console.log("📋 Parsed request:", request);
 
-          // Eğer veri geçersizse (undefined değerler varsa) atla
+          // Skip if data is invalid (has undefined values)
           if (
             !request.id ||
             !request.amount ||
@@ -200,7 +200,7 @@ class ContractService {
             continue;
           }
 
-          // Request verisi geçerli mi kontrol et
+          // Check if request data is valid
           if (
             !request ||
             !request.borrower ||
@@ -229,7 +229,7 @@ class ContractService {
           }
         } catch (error) {
           console.log(`❌ Error getting request ${i.toString()}:`, error);
-          // Bu ID için veri yok, devam et
+          // No data for this ID, continue
         }
       }
 

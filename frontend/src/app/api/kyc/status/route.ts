@@ -64,7 +64,7 @@ export async function GET(req: Request) {
     ) {
       ui = "DECLINED";
     } else if (status === "completed") {
-      // Persona sandbox'ında completed status'u genelde onay anlamına gelir
+      // In Persona sandbox, completed status generally means approved
       ui = "APPROVED";
     } else if (
       status === "pending" ||

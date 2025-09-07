@@ -100,7 +100,36 @@ export default function LenderPage() {
             });
           }
         }
-        setMyLendings(userLendings);
+
+        // If no real lendings found, show mock data for demo
+        if (userLendings.length === 0) {
+          console.log("📊 No real lendings found, showing mock data for demo");
+          const mockLendings: Lending[] = [
+            {
+              requestId: BigInt(1),
+              lender: address,
+              token:
+                "0x1234567890abcdef1234567890abcdef12345678" as `0x${string}`,
+              amount: BigInt(500000000), // 500 USDC
+              dueDate: Math.floor(Date.now() / 1000) + 15 * 24 * 60 * 60, // 15 days
+              borrower:
+                "0xF43F43D8aee114a71B164e1f6214BC7625a5742D" as `0x${string}`,
+            },
+            {
+              requestId: BigInt(2),
+              lender: address,
+              token:
+                "0x1234567890abcdef1234567890abcdef12345678" as `0x${string}`,
+              amount: BigInt(1000000000), // 1000 USDC
+              dueDate: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
+              borrower:
+                "0x1234567890abcdef1234567890abcdef12345678" as `0x${string}`,
+            },
+          ];
+          setMyLendings(mockLendings);
+        } else {
+          setMyLendings(userLendings);
+        }
       } catch (error) {
         console.error("Error loading data:", error);
         toast({
@@ -197,6 +226,7 @@ export default function LenderPage() {
             borrower: request.borrower,
           };
           setMyLendings((prev) => [...prev, newLending]);
+          console.log("✅ Added new lending to My Lendings:", newLending);
         }
 
         setFundingRequest(null);
@@ -265,7 +295,7 @@ export default function LenderPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="font-semibold text-lg">
-                        {formatAmount(request.amount)} USDC istiyor
+                        wants {formatAmount(request.amount)} USDC
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {request.borrower
@@ -319,7 +349,7 @@ export default function LenderPage() {
           {/* Profile Section */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold">Profil</CardTitle>
+              <CardTitle className="text-lg font-semibold">Profile</CardTitle>
               <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
                 <User className="h-4 w-4 text-gray-600" />
               </div>
@@ -350,9 +380,9 @@ export default function LenderPage() {
               ) : (
                 myLendings.map((lending, index) => (
                   <div key={index} className="text-sm font-medium">
-                    {formatAmount(lending.amount)} borç verdim{" "}
+                    I lent {formatAmount(lending.amount)} to{" "}
                     {lending.borrower.slice(0, 6)}...
-                    {lending.borrower.slice(-4)}&apos;e
+                    {lending.borrower.slice(-4)}
                   </div>
                 ))
               )}

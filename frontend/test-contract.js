@@ -1,45 +1,45 @@
-// Kontrat test scripti
-// Bu dosyayı browser console'da çalıştır
+// Contract test script
+// Run this file in browser console
 
-// 1. Kontrat adresini kontrol et
+// 1. Check contract address
 console.log(
   "RequestBook Contract Address:",
   "0xc70Cfbddb71B7b5478C14384f6D98aa07e86fc18"
 );
 
-// 2. RISE testnet'e bağlan
+// 2. Connect to RISE testnet
 console.log("RISE Testnet RPC:", "https://testnet.riselabs.xyz");
 
-// 3. Test için gerekli bilgiler
+// 3. Required information for testing
 const testData = {
   contractAddress: "0xc70Cfbddb71B7b5478C14384f6D98aa07e86fc18",
   rpcUrl: "https://testnet.riselabs.xyz",
   chainId: 11155931,
-  // Test için bir ERC20 token adresi gerekli
-  testUSDC: "0x0000000000000000000000000000000000000000", // Bu adresi gerçek bir USDC token ile değiştir
+  // An ERC20 token address is required for testing
+  testUSDC: "0x0000000000000000000000000000000000000000", // Replace this address with a real USDC token
 };
 
 console.log("Test Data:", testData);
 
-// 4. Kontrat fonksiyonlarını test et
+// 4. Test contract functions
 async function testContract() {
   try {
-    // Web3 provider'ı al
+    // Get Web3 provider
     const provider = window.ethereum;
     if (!provider) {
-      console.error("MetaMask bulunamadı!");
+      console.error("MetaMask not found!");
       return;
     }
 
-    // RISE testnet'e bağlan
+    // Connect to RISE testnet
     await provider.request({
       method: "wallet_switchEtherumChain",
       params: [{ chainId: "0xAA7A4D" }], // 11155931 in hex
     });
 
-    console.log("RISE testnet'e bağlandı!");
+    console.log("Connected to RISE testnet!");
 
-    // Kontrat ABI'si
+    // Contract ABI
     const contractABI = [
       {
         inputs: [],
@@ -82,11 +82,11 @@ async function testContract() {
       testData.contractAddress
     );
 
-    // nextID'yi oku
+    // Read nextID
     const nextID = await contract.methods.nextID().call();
     console.log("Next ID:", nextID);
 
-    // Mevcut talepleri kontrol et
+    // Check existing requests
     for (let i = 0; i < nextID; i++) {
       try {
         const request = await contract.methods.getBorrowRequest(i).call();
