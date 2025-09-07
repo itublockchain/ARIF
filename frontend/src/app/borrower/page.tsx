@@ -30,7 +30,6 @@ import { contractService } from "@/lib/contract-service";
 import { useToast } from "@/hooks/use-toast";
 import { useContractActions } from "@/hooks/use-contract-actions";
 import { BorrowRequestExtended } from "@/lib/types";
-import { parseUnits } from "viem";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";

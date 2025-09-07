@@ -170,33 +170,6 @@ export default function LenderPage() {
     }
   };
 
-  const handleFund = async (requestId: bigint, amount: bigint) => {
-    if (!address) return;
-
-    try {
-      setFundingRequest({ id: requestId, amount });
-
-      // Get contract config
-      const contractConfig = contractService.getContractConfig();
-
-      // Fund request using wagmi writeContract
-      writeContract({
-        ...contractConfig,
-        functionName: "createLoan",
-        args: [requestId],
-      });
-    } catch (error) {
-      console.error("Error funding request:", error);
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to fund request",
-        variant: "destructive",
-      });
-      setFundingRequest(null);
-    }
-  };
-
   // Handle transaction success
   useEffect(() => {
     if (isSuccess && address) {
@@ -384,7 +357,6 @@ export default function LenderPage() {
                         <div className="flex items-center gap-3 ml-6">
                           <FundDialog
                             request={request}
-                            onFund={handleFund}
                             onApprove={handleApprove}
                             allowance={allowance}
                             isPending={

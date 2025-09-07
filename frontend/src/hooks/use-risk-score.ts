@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAccount } from "wagmi";
 
 interface RiskScoreData {
@@ -19,7 +19,8 @@ interface RiskScoreData {
 
 interface RiskScoreResponse {
   success: boolean;
-  data: RiskScoreData;
+  data?: RiskScoreData;
+  error?: string;
 }
 
 export function useRiskScore() {
@@ -28,56 +29,59 @@ export function useRiskScore() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRiskScore = async (walletAddress?: string) => {
-    const targetAddress = walletAddress || address;
-    if (!targetAddress) return;
+  const fetchRiskScore = useCallback(
+    async (walletAddress?: string) => {
+      const targetAddress = walletAddress || address;
+      if (!targetAddress) return;
 
-    try {
-      setIsLoading(true);
-      setError(null);
+      try {
+        setIsLoading(true);
+        setError(null);
 
-      // First, get leaderboard data
-      const leaderboardResponse = await fetch("/api/leaderboard");
-      const leaderboardData = await leaderboardResponse.json();
+        // First, get leaderboard data
+        const leaderboardResponse = await fetch("/api/leaderboard");
+        const leaderboardData = await leaderboardResponse.json();
 
-      console.log("🔍 Hook - Leaderboard Data:", leaderboardData);
+        console.log("🔍 Hook - Leaderboard Data:", leaderboardData);
 
-      if (!leaderboardData.success) {
-        throw new Error("Failed to fetch leaderboard data");
+        if (!leaderboardData.success) {
+          throw new Error("Failed to fetch leaderboard data");
+        }
+
+        // Then, get risk score based on leaderboard data
+        const requestBody = {
+          walletAddress: targetAddress,
+          leaderboardData: leaderboardData.leaderboard,
+        };
+
+        console.log("🔍 Hook - Request Body:", requestBody);
+
+        const riskResponse = await fetch("/api/risk-score", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        const riskResult: RiskScoreResponse = await riskResponse.json();
+
+        if (riskResult.success && riskResult.data) {
+          setRiskData(riskResult.data);
+        } else {
+          throw new Error(riskResult.error || "Failed to generate risk score");
+        }
+      } catch (err) {
+        console.error("Error fetching risk score:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch risk score"
+        );
+      } finally {
+        setIsLoading(false);
       }
-
-      // Then, get risk score based on leaderboard data
-      const requestBody = {
-        walletAddress: targetAddress,
-        leaderboardData: leaderboardData.leaderboard,
-      };
-
-      console.log("🔍 Hook - Request Body:", requestBody);
-
-      const riskResponse = await fetch("/api/risk-score", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      const riskResult: RiskScoreResponse = await riskResponse.json();
-
-      if (riskResult.success) {
-        setRiskData(riskResult.data);
-      } else {
-        throw new Error(riskResult.error || "Failed to generate risk score");
-      }
-    } catch (err) {
-      console.error("Error fetching risk score:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch risk score"
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [address]
+  );
 
   const refreshRiskScore = () => {
     if (address) {
@@ -89,7 +93,7 @@ export function useRiskScore() {
     if (address) {
       fetchRiskScore();
     }
-  }, [address]);
+  }, [address, fetchRiskScore]);
 
   const getRiskColor = (riskLevel: string) => {
     switch (riskLevel) {

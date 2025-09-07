@@ -12,8 +12,15 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, AlertCircle, CheckCircle, Clock } from "lucide-react";
 
+interface ReclaimProof {
+  proofHash: string;
+  timestamp: number;
+  isValid: boolean;
+  data?: string;
+}
+
 interface ReclaimButtonProps {
-  onSuccess?: (proof: any) => void;
+  onSuccess?: (proof: ReclaimProof) => void;
   onError?: (error: string) => void;
   className?: string;
   size?: "default" | "sm" | "lg" | "icon";
@@ -39,11 +46,7 @@ export function ReclaimButton({
     "start"
   );
   const [error, setError] = useState<string | null>(null);
-  const [proof, setProof] = useState<{
-    proofHash: string;
-    timestamp: number;
-    isValid: boolean;
-  } | null>(null);
+  const [proof, setProof] = useState<ReclaimProof | null>(null);
 
   const handleStart = async () => {
     setIsLoading(true);
@@ -60,13 +63,14 @@ export function ReclaimButton({
       // Simulate QR code generation and proof verification
       setTimeout(() => {
         setStep("success");
-        setProof({
+        const newProof = {
           proofHash: "0x" + Math.random().toString(16).substr(2, 64),
           timestamp: Math.floor(Date.now() / 1000),
           isValid: true,
           data: "mock-proof-data",
-        });
-        onSuccess?.(proof);
+        };
+        setProof(newProof);
+        onSuccess?.(newProof);
         setIsLoading(false);
       }, 3000);
     } catch (err) {
