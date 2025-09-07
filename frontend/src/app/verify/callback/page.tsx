@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAccount } from "wagmi";
 import { useKYCStatus } from "@/hooks/use-kyc-status";
@@ -35,9 +35,18 @@ function VerifyCallbackContent() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [isClient, setIsClient] = useState(false);
+  const isCheckingRef = useRef(false);
 
   const checkKYCStatus = useCallback(
     async (inquiryId: string, retryCount = 0) => {
+      // Prevent multiple simultaneous requests
+      if (isCheckingRef.current && retryCount === 0) {
+        console.log("KYC check already in progress, skipping...");
+        return;
+      }
+
+      isCheckingRef.current = true;
+
       try {
         setStatus("loading");
         setProgress(25);
@@ -52,9 +61,15 @@ function VerifyCallbackContent() {
 
         if (!response.ok) {
           if (response.status === 429) {
-            // Rate limit exceeded, wait longer before retry
-            if (retryCount < 4) {
-              const retryAfter = data.retryAfter || 30; // Default 30 seconds
+            // Rate limit exceeded, implement exponential backoff
+            if (retryCount < 6) {
+              const retryAfter =
+                data.retryAfter || Math.min(5 * Math.pow(2, retryCount), 60); // Exponential backoff, max 60 seconds
+              console.log(
+                `Rate limited, retrying in ${retryAfter} seconds (attempt ${
+                  retryCount + 1
+                })`
+              );
               setTimeout(() => {
                 checkKYCStatus(inquiryId, retryCount + 1);
               }, retryAfter * 1000);
@@ -126,11 +141,11 @@ function VerifyCallbackContent() {
           setStatus("pending");
           setProgress(50);
 
-          // Retry logic: check again after 15 seconds, max 4 times (60 seconds total)
-          if (retryCount < 4) {
+          // Retry logic: check again after 30 seconds, max 2 times (60 seconds total)
+          if (retryCount < 2) {
             setTimeout(() => {
               checkKYCStatus(inquiryId, retryCount + 1);
-            }, 15000); // 15 seconds instead of 5
+            }, 30000); // 30 seconds - much less frequent
           } else {
             setError(
               "Verification is taking longer than expected. Please try again later."
@@ -152,6 +167,11 @@ function VerifyCallbackContent() {
         setError("Failed to verify KYC status");
         setStatus("error");
         setProgress(100);
+      } finally {
+        // Reset the checking flag for non-retry requests
+        if (retryCount === 0) {
+          isCheckingRef.current = false;
+        }
       }
     },
     [address, updateKYCStatus]
@@ -159,6 +179,11 @@ function VerifyCallbackContent() {
 
   useEffect(() => {
     setIsClient(true);
+
+    // Cleanup function to reset checking flag
+    return () => {
+      isCheckingRef.current = false;
+    };
   }, []);
 
   useEffect(() => {

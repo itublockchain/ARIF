@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 
+// Rate limiting for KYC start requests
+const startRateLimitMap = new Map<
+  string,
+  { count: number; resetTime: number }
+>();
+const START_RATE_LIMIT_WINDOW = 3600000; // 1 hour
+const START_RATE_LIMIT_MAX_REQUESTS = 5; // 5 requests per hour per address
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -10,6 +18,37 @@ export async function GET(req: Request) {
         { error: "Address parameter is required" },
         { status: 400 }
       );
+    }
+
+    // Rate limiting check for KYC start requests
+    const now = Date.now();
+    const rateLimit = startRateLimitMap.get(addr);
+
+    if (rateLimit) {
+      if (now < rateLimit.resetTime) {
+        if (rateLimit.count >= START_RATE_LIMIT_MAX_REQUESTS) {
+          return NextResponse.json(
+            {
+              error:
+                "Too many KYC requests. Please wait before starting a new verification.",
+              retryAfter: Math.ceil((rateLimit.resetTime - now) / 1000),
+            },
+            { status: 429 }
+          );
+        }
+        rateLimit.count++;
+      } else {
+        // Reset the counter
+        startRateLimitMap.set(addr, {
+          count: 1,
+          resetTime: now + START_RATE_LIMIT_WINDOW,
+        });
+      }
+    } else {
+      startRateLimitMap.set(addr, {
+        count: 1,
+        resetTime: now + START_RATE_LIMIT_WINDOW,
+      });
     }
 
     const template = process.env.PERSONA_INQUIRY_TEMPLATE_ID;
@@ -50,29 +89,33 @@ export async function GET(req: Request) {
     if (!inquiryResponse.ok) {
       const errorData = await inquiryResponse.json();
       console.error("Persona API error:", errorData);
-      
+
       // Handle specific error cases
       if (inquiryResponse.status === 429) {
         return NextResponse.json(
-          { 
+          {
             error: "Rate limit exceeded. Please try again in a few minutes.",
             details: errorData,
-            retryAfter: 60 // seconds
+            retryAfter: 60, // seconds
           },
           { status: 429 }
         );
       }
-      
-      if (inquiryResponse.status === 400 && errorData.errors?.[0]?.detail?.includes("already exists")) {
+
+      if (
+        inquiryResponse.status === 400 &&
+        errorData.errors?.[0]?.detail?.includes("already exists")
+      ) {
         return NextResponse.json(
-          { 
-            error: "KYC inquiry already exists for this address. Please check your existing inquiry.",
-            details: errorData
+          {
+            error:
+              "KYC inquiry already exists for this address. Please check your existing inquiry.",
+            details: errorData,
           },
           { status: 400 }
         );
       }
-      
+
       return NextResponse.json(
         { error: "Failed to create inquiry", details: errorData },
         { status: inquiryResponse.status }
