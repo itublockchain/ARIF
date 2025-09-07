@@ -151,19 +151,23 @@ class ContractService {
   // Get loan details by borrow ID
   async getLoanByBorrowID(borrowID: bigint): Promise<Loan | null> {
     try {
+      console.log(`🔍 Getting loan for borrow ID: ${borrowID.toString()}`);
       const loan = (await publicClient.readContract({
         address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
         abi: CONTRACT_ABIS.RequestBook,
         functionName: "loanByBorrowID",
         args: [borrowID],
       })) as [boolean, bigint, `0x${string}`];
-      return {
+      console.log(`📋 Raw loan data for ID ${borrowID.toString()}:`, loan);
+      const result = {
         isFilled: loan[0],
         borrowID: loan[1],
         lender: loan[2],
       };
+      console.log(`📋 Parsed loan data for ID ${borrowID.toString()}:`, result);
+      return result;
     } catch (error) {
-      console.error("Error getting loan by borrow ID:", error);
+      console.error(`❌ Error getting loan by borrow ID ${borrowID.toString()}:`, error);
       return null;
     }
   }
@@ -254,6 +258,7 @@ class ContractService {
 
           const isCancelled = await this.isBorrowRequestCancelled(i);
           const loan = await this.getLoanByBorrowID(i);
+          console.log(`🔍 Loan data for ID ${i.toString()}:`, loan);
 
           if (!isCancelled) {
             const requestData: BorrowRequestExtended = {
