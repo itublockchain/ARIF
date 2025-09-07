@@ -67,32 +67,62 @@ export async function GET() {
     let leaderboard: LeaderboardEntry[];
 
     if (mintEvents.length === 0) {
-      // Mock leaderboard data for demo
+      // Mock leaderboard data for demo - realistic addresses and amounts
       leaderboard = [
         {
           rank: 1,
-          address: "0x8a93d247134d91e0de6f96547cb0204e5be8e5d8",
-          totalMinted: "100000",
+          address: "0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
+          totalMinted: "1000000",
         },
         {
           rank: 2,
-          address: "0x1234567890abcdef1234567890abcdef12345678",
-          totalMinted: "75000",
+          address: "0x8ba1f109551bD432803012645Hac136c4c4c4c4c4",
+          totalMinted: "980000",
         },
         {
           rank: 3,
-          address: "0xabcdef1234567890abcdef1234567890abcdef12",
-          totalMinted: "50000",
+          address: "0x9f8f72aA9304c8B593d555F12eF6589cC3A579A2",
+          totalMinted: "750000",
         },
         {
           rank: 4,
-          address: "0x9876543210fedcba9876543210fedcba98765432",
-          totalMinted: "35000",
+          address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+          totalMinted: "520000",
         },
         {
           rank: 5,
-          address: "0xfedcba9876543210fedcba9876543210fedcba98",
-          totalMinted: "25000",
+          address: "0xA0b86a33E6C4C4C4C4C4C4C4C4C4C4C4C4C4C4C4",
+          totalMinted: "380000",
+        },
+        {
+          rank: 6,
+          address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+          totalMinted: "290000",
+        },
+        {
+          rank: 7,
+          address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9",
+          totalMinted: "210000",
+        },
+        {
+          rank: 8,
+          address: "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+          totalMinted: "165000",
+        },
+        {
+          rank: 9,
+          address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+          totalMinted: "120000",
+        },
+        {
+          rank: 10,
+          address: "0x0bc529c00C6401aEF6D220BE8c6Ea1667F6Ad93e",
+          totalMinted: "85000",
+        },
+        {
+          rank: 11,
+          address: "0xF43F43D8aee114a71B164e1f6214BC7625a5742D",
+          totalMinted: "50000",
         },
       ];
     } else {

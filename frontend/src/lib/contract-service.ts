@@ -39,14 +39,16 @@ class ContractService {
         abi: CONTRACT_ABIS.RequestBook,
         functionName: "borrowRequestByID",
         args: [borrowID],
-      })) as [bigint, bigint, `0x${string}`, `0x${string}`];
+      })) as [bigint, bigint, bigint, bigint, `0x${string}`, `0x${string}`];
 
-      // Data from contract comes in array format [id, amount, borrower, assetERC20Address]
+      // Data from contract comes in array format [id, amount, deadline, overtime_interest, borrower, assetERC20Address]
       return {
         id: requestData[0],
-        borrower: requestData[2],
         amount: requestData[1],
-        assetERC20Address: requestData[3],
+        deadline: requestData[2],
+        overtime_interest: requestData[3],
+        borrower: requestData[4],
+        assetERC20Address: requestData[5],
       };
     } catch (error) {
       console.error("Error getting borrow request:", error);
@@ -72,37 +74,94 @@ class ContractService {
   // Get borrow request IDs for a borrower
   async getBorrowRequestIDs(borrower: `0x${string}`): Promise<bigint[]> {
     try {
-      // This would require a view function in the contract
-      // For now, we'll implement a workaround by checking all IDs
-      const nextID = (await publicClient.readContract({
-        address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
-        abi: CONTRACT_ABIS.RequestBook,
-        functionName: "nextID",
-        args: [],
-      })) as unknown as bigint;
-      const requestIDs: bigint[] = [];
+      console.log("🔍 Getting borrow request IDs for borrower:", borrower);
 
-      for (let i = BigInt(0); i < nextID; i++) {
+      // Try to get all request IDs for this borrower using the mapping
+      const requestIDs: bigint[] = [];
+      let index = BigInt(0);
+
+      while (true) {
         try {
-          const requestData = (await publicClient.readContract({
+          const requestID = (await publicClient.readContract({
             address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
             abi: CONTRACT_ABIS.RequestBook,
-            functionName: "borrowRequestByID",
-            args: [i],
-          })) as [bigint, bigint, `0x${string}`, `0x${string}`];
-          // Data from contract comes in array format [id, amount, borrower, assetERC20Address]
-          const borrowerAddress = requestData[2];
-          if (
-            borrowerAddress &&
-            borrowerAddress.toLowerCase() === borrower.toLowerCase()
-          ) {
-            requestIDs.push(i);
+            functionName: "borrowRequestIDS",
+            args: [borrower, index],
+          })) as bigint;
+
+          console.log(
+            `📊 Request ID at index ${index.toString()}: ${requestID.toString()}`
+          );
+
+          // If we get a valid ID (not 0), add it to the list
+          if (requestID && requestID > BigInt(0)) {
+            requestIDs.push(requestID);
+            index++;
+          } else {
+            // No more requests for this borrower
+            break;
           }
-        } catch {
-          // Request doesn't exist, continue
+        } catch (error) {
+          console.log(
+            `❌ Error reading request ID at index ${index.toString()}:`,
+            error
+          );
+          // No more requests for this borrower
+          break;
         }
       }
 
+      console.log("📊 Total request IDs found via mapping:", requestIDs.length);
+
+      // If no requests found via mapping, fallback to checking all IDs
+      if (requestIDs.length === 0) {
+        console.log(
+          "🔄 No requests found via mapping, falling back to checking all IDs..."
+        );
+        const nextID = (await publicClient.readContract({
+          address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
+          abi: CONTRACT_ABIS.RequestBook,
+          functionName: "nextID",
+          args: [],
+        })) as unknown as bigint;
+
+        console.log("📊 Next ID:", nextID.toString());
+
+        for (let i = BigInt(0); i < nextID; i++) {
+          try {
+            const requestData = (await publicClient.readContract({
+              address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
+              abi: CONTRACT_ABIS.RequestBook,
+              functionName: "borrowRequestByID",
+              args: [i],
+            })) as [
+              bigint,
+              bigint,
+              bigint,
+              bigint,
+              `0x${string}`,
+              `0x${string}`
+            ];
+            // Data from contract comes in array format [id, amount, deadline, overtime_interest, borrower, assetERC20Address]
+            const borrowerAddress = requestData[4]; // borrower is at index 4
+            console.log(
+              `🔍 Request ${i.toString()} borrower: ${borrowerAddress}, looking for: ${borrower}`
+            );
+            if (
+              borrowerAddress &&
+              borrowerAddress.toLowerCase() === borrower.toLowerCase()
+            ) {
+              console.log(`✅ Found matching request ID: ${i.toString()}`);
+              requestIDs.push(i);
+            }
+          } catch (error) {
+            console.log(`❌ Error reading request ${i.toString()}:`, error);
+            // Request doesn't exist, continue
+          }
+        }
+      }
+
+      console.log("📊 Total request IDs found:", requestIDs.length);
       return requestIDs;
     } catch (error) {
       console.error("Error getting borrow request IDs:", error);
@@ -173,15 +232,17 @@ class ContractService {
             abi: CONTRACT_ABIS.RequestBook,
             functionName: "borrowRequestByID",
             args: [i],
-          })) as [bigint, bigint, `0x${string}`, `0x${string}`];
+          })) as [bigint, bigint, bigint, bigint, `0x${string}`, `0x${string}`];
           console.log("📋 Request data:", requestData);
 
-          // Data from contract comes in array format [id, amount, borrower, assetERC20Address]
+          // Data from contract comes in array format [id, amount, deadline, overtime_interest, borrower, assetERC20Address]
           const request = {
             id: requestData[0],
             amount: requestData[1],
-            borrower: requestData[2],
-            assetERC20Address: requestData[3],
+            deadline: requestData[2],
+            overtime_interest: requestData[3],
+            borrower: requestData[4],
+            assetERC20Address: requestData[5],
           };
 
           console.log("📋 Raw request data:", requestData);
@@ -191,6 +252,8 @@ class ContractService {
           if (
             !request.id ||
             !request.amount ||
+            !request.deadline ||
+            !request.overtime_interest ||
             !request.borrower ||
             !request.assetERC20Address
           ) {
@@ -218,9 +281,17 @@ class ContractService {
               id: request.id,
               borrower: request.borrower,
               amount: request.amount,
+              deadline: request.deadline,
+              overtime_interest: request.overtime_interest,
               assetERC20Address: request.assetERC20Address,
               status: loan?.isFilled ? "Funded" : "Open",
               funded: loan?.isFilled ? request.amount : BigInt(0),
+              isOverdue:
+                Number(request.deadline) < Math.floor(Date.now() / 1000),
+              currentInterestRate: this.calculateCurrentInterestRate(
+                request.deadline,
+                request.overtime_interest
+              ),
             };
             console.log("✅ Adding request:", requestData);
             requests.push(requestData);
@@ -259,6 +330,8 @@ class ContractService {
           if (
             request &&
             request.amount &&
+            request.deadline &&
+            request.overtime_interest &&
             request.borrower &&
             request.assetERC20Address
           ) {
@@ -271,6 +344,12 @@ class ContractService {
                 ...request,
                 status: loan?.isFilled ? "Funded" : "Open",
                 funded: loan?.isFilled ? request.amount : BigInt(0),
+                isOverdue:
+                  Number(request.deadline) < Math.floor(Date.now() / 1000),
+                currentInterestRate: this.calculateCurrentInterestRate(
+                  request.deadline,
+                  request.overtime_interest
+                ),
               };
               console.log("✅ Adding borrower request:", requestData);
               requests.push(requestData);
@@ -312,15 +391,10 @@ class ContractService {
     }
   }
 
-  // Fund a borrow request
-  async fundBorrowRequest(borrowID: bigint, amount: bigint): Promise<boolean> {
+  // Fund a borrow request (createLoan)
+  async fundBorrowRequest(borrowID: bigint): Promise<boolean> {
     try {
-      console.log(
-        "💰 Funding borrow request:",
-        borrowID.toString(),
-        "Amount:",
-        amount.toString()
-      );
+      console.log("💰 Funding borrow request:", borrowID.toString());
 
       // This would be called from the frontend using wagmi writeContract
       // For now, we'll just return true as the actual transaction will be handled by wagmi
@@ -328,6 +402,70 @@ class ContractService {
     } catch (error) {
       console.error("Error funding borrow request:", error);
       return false;
+    }
+  }
+
+  // Repay a loan
+  async repayLoan(borrowID: bigint): Promise<boolean> {
+    try {
+      console.log("💳 Repaying loan:", borrowID.toString());
+
+      // This would be called from the frontend using wagmi writeContract
+      // For now, we'll just return true as the actual transaction will be handled by wagmi
+      return true;
+    } catch (error) {
+      console.error("Error repaying loan:", error);
+      return false;
+    }
+  }
+
+  // Calculate current interest rate based on overdue days
+  private calculateCurrentInterestRate(
+    deadline: bigint,
+    overtimeInterest: bigint
+  ): number {
+    const now = Math.floor(Date.now() / 1000);
+    const overdueDays = Math.max(0, now - Number(deadline));
+
+    if (overdueDays >= 9) {
+      return Number(overtimeInterest) * 2.5; // 5/2 multiplier
+    } else if (overdueDays >= 6) {
+      return Number(overtimeInterest) * 2; // 2x multiplier
+    } else if (overdueDays >= 3) {
+      return Number(overtimeInterest) * 1.5; // 3/2 multiplier
+    }
+
+    return Number(overtimeInterest); // Base rate
+  }
+
+  // Get repayment amount for a loan
+  async getRepaymentAmount(borrowID: bigint): Promise<bigint | null> {
+    try {
+      const request = await this.getBorrowRequest(borrowID);
+      if (!request) return null;
+
+      const now = Math.floor(Date.now() / 1000);
+      const overdueDays = Math.max(0, now - Number(request.deadline));
+
+      let interestMultiplier = 1;
+      if (overdueDays >= 9) {
+        interestMultiplier = 2.5; // 5/2
+      } else if (overdueDays >= 6) {
+        interestMultiplier = 2;
+      } else if (overdueDays >= 3) {
+        interestMultiplier = 1.5; // 3/2
+      }
+
+      const interest = BigInt(
+        Math.floor(Number(request.overtime_interest) * interestMultiplier)
+      );
+      const repayAmount =
+        (request.amount * BigInt(100 + Number(interest))) / BigInt(100);
+
+      return repayAmount;
+    } catch (error) {
+      console.error("Error calculating repayment amount:", error);
+      return null;
     }
   }
 }

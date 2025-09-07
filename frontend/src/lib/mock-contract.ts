@@ -12,7 +12,7 @@ class MockContractService {
     assetERC20Address: `0x${string}`,
     amount: bigint,
     dueDate: number,
-    maxAprBps?: number
+    overtimeInterestBps: number
   ): Promise<bigint> {
     const requestId = this.nextRequestId++;
 
@@ -21,10 +21,14 @@ class MockContractService {
       borrower,
       assetERC20Address,
       amount,
+      deadline: BigInt(dueDate),
+      overtime_interest: BigInt(overtimeInterestBps),
       dueDate,
       funded: 0n,
-      maxAprBps,
+      maxAprBps: overtimeInterestBps / 100, // Convert basis points to percentage
       status: "Open" as RequestStatus,
+      isOverdue: false,
+      currentInterestRate: overtimeInterestBps,
     };
 
     this.requests.set(requestId, request);

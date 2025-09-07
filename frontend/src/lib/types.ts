@@ -12,6 +12,8 @@ export type BorrowRequest = {
   id: bigint;
   borrower: `0x${string}`;
   amount: bigint; // raw (wei/units)
+  deadline: bigint; // unix timestamp
+  overtime_interest: bigint; // basis points (e.g., 1000 = 10%)
   assetERC20Address: `0x${string}`;
 };
 
@@ -28,6 +30,8 @@ export type BorrowRequestExtended = BorrowRequest & {
   funded?: bigint; // raw (for frontend display)
   maxAprBps?: number; // opsiyon (for frontend display)
   status: RequestStatus; // computed status
+  isOverdue?: boolean; // computed from deadline
+  currentInterestRate?: number; // computed based on overdue days
 };
 
 // Legacy Lending type for compatibility

@@ -10,18 +10,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, QrCode, CheckCircle, AlertCircle } from "lucide-react";
+import { Shield, AlertCircle, CheckCircle, Clock } from "lucide-react";
 
 interface ReclaimButtonProps {
-  onSuccess?: (proof: unknown) => void;
+  onSuccess?: (proof: any) => void;
   onError?: (error: string) => void;
   className?: string;
-  size?: "sm" | "default" | "lg";
+  size?: "default" | "sm" | "lg" | "icon";
   variant?:
     | "default"
+    | "destructive"
     | "outline"
     | "secondary"
-    | "destructive"
     | "ghost"
     | "link";
 }
@@ -39,37 +39,38 @@ export function ReclaimButton({
     "start"
   );
   const [error, setError] = useState<string | null>(null);
+  const [proof, setProof] = useState<any>(null);
 
   const handleStart = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Mock Reclaim session creation
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Mock Reclaim process - in real implementation, this would:
+      // 1. Create a Reclaim session
+      // 2. Generate QR code for user to scan
+      // 3. Wait for proof verification
+
       setStep("qr");
-    } catch (err) {
-      setError("Failed to start Reclaim session");
-      setStep("error");
-      onError?.(err as string);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const handleQRComplete = async () => {
-    setIsLoading(true);
-
-    try {
-      // Mock proof generation
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      setStep("success");
-      onSuccess?.({ proofHash: "0x123...", timestamp: Date.now() });
+      // Simulate QR code generation and proof verification
+      setTimeout(() => {
+        setStep("success");
+        setProof({
+          proofHash: "0x" + Math.random().toString(16).substr(2, 64),
+          timestamp: Math.floor(Date.now() / 1000),
+          isValid: true,
+          data: "mock-proof-data",
+        });
+        onSuccess?.(proof);
+        setIsLoading(false);
+      }, 3000);
     } catch (err) {
-      setError("Failed to generate proof");
+      setError(
+        err instanceof Error ? err.message : "Failed to start verification"
+      );
       setStep("error");
-      onError?.(err as string);
-    } finally {
+      onError?.(error || "Unknown error");
       setIsLoading(false);
     }
   };
@@ -78,6 +79,7 @@ export function ReclaimButton({
     setIsOpen(false);
     setStep("start");
     setError(null);
+    setProof(null);
   };
 
   return (
@@ -134,27 +136,24 @@ export function ReclaimButton({
 
             {step === "qr" && (
               <div className="space-y-4 text-center">
-                <div className="w-32 h-32 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">
-                  <QrCode className="h-16 w-16 text-gray-400" />
+                <div className="w-48 h-48 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-lg mb-2"></div>
+                    <p className="text-sm text-muted-foreground">QR Code</p>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-medium">Scan QR Code</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Use your mobile device to scan the QR code and connect your
-                    bank account
-                  </p>
-                </div>
+                <Alert>
+                  <Clock className="h-4 w-4" />
+                  <AlertDescription>
+                    Scan the QR code with your phone to connect your bank
+                    account and prove your financial status.
+                  </AlertDescription>
+                </Alert>
 
-                <Button
-                  onClick={handleQRComplete}
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {isLoading
-                    ? "Generating Proof..."
-                    : "I&apos;ve Connected My Account"}
-                </Button>
+                <div className="text-sm text-muted-foreground">
+                  <p>Waiting for verification...</p>
+                </div>
               </div>
             )}
 
@@ -164,15 +163,28 @@ export function ReclaimButton({
                   <CheckCircle className="h-8 w-8 text-green-600" />
                 </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-medium text-green-600">
-                    Verification Successful!
-                  </h4>
-                  <p className="text-sm text-muted-foreground">
-                    Your financial data has been verified and a proof has been
-                    generated.
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    Verification Complete!
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Your financial proof has been verified successfully.
                   </p>
                 </div>
+
+                {proof && (
+                  <div className="bg-muted p-3 rounded-lg text-left">
+                    <h4 className="font-medium mb-2">Proof Details:</h4>
+                    <div className="text-sm space-y-1">
+                      <div>Hash: {proof.proofHash.slice(0, 20)}...</div>
+                      <div>
+                        Timestamp:{" "}
+                        {new Date(proof.timestamp * 1000).toLocaleString()}
+                      </div>
+                      <div>Status: {proof.isValid ? "Valid" : "Invalid"}</div>
+                    </div>
+                  </div>
+                )}
 
                 <Button onClick={handleClose} className="w-full">
                   Continue
@@ -186,27 +198,16 @@ export function ReclaimButton({
                   <AlertCircle className="h-8 w-8 text-red-600" />
                 </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-medium text-red-600">
-                    Verification Failed
-                  </h4>
-                  <p className="text-sm text-muted-foreground">
-                    {error || "Something went wrong during verification"}
+                <div>
+                  <h3 className="text-lg font-semibold">Verification Failed</h3>
+                  <p className="text-muted-foreground">
+                    {error || "An error occurred during verification."}
                   </p>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleClose}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Close
-                  </Button>
-                  <Button onClick={() => setStep("start")} className="flex-1">
-                    Try Again
-                  </Button>
-                </div>
+                <Button onClick={handleClose} className="w-full">
+                  Close
+                </Button>
               </div>
             )}
           </div>

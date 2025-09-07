@@ -36,6 +36,10 @@ const mockRequests = [
     fundedPct: 75,
     status: "Pending",
     borrower: "0x1234567890abcdef1234567890abcdef12345678",
+    deadline: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days from now
+    overtimeInterest: 1000, // 10% in basis points
+    isOverdue: false,
+    currentInterestRate: 1000,
   },
   {
     id: "2",
@@ -46,6 +50,10 @@ const mockRequests = [
     fundedPct: 100,
     status: "Funded",
     borrower: "0xabcdef1234567890abcdef1234567890abcdef12",
+    deadline: Math.floor(Date.now() / 1000) + 60 * 24 * 60 * 60, // 60 days from now
+    overtimeInterest: 1500, // 15% in basis points
+    isOverdue: false,
+    currentInterestRate: 1500,
   },
   {
     id: "3",
@@ -56,6 +64,10 @@ const mockRequests = [
     fundedPct: 40,
     status: "Pending",
     borrower: "0x9876543210fedcba9876543210fedcba98765432",
+    deadline: Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60, // 14 days from now
+    overtimeInterest: 800, // 8% in basis points
+    isOverdue: false,
+    currentInterestRate: 800,
   },
   {
     id: "4",
@@ -66,6 +78,10 @@ const mockRequests = [
     fundedPct: 20,
     status: "Pending",
     borrower: "0xfedcba9876543210fedcba9876543210fedcba98",
+    deadline: Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60, // 90 days from now
+    overtimeInterest: 2000, // 20% in basis points
+    isOverdue: false,
+    currentInterestRate: 2000,
   },
   {
     id: "5",
@@ -76,6 +92,10 @@ const mockRequests = [
     fundedPct: 100,
     status: "Active",
     borrower: "0x1111222233334444555566667777888899990000",
+    deadline: Math.floor(Date.now() / 1000) - 5 * 24 * 60 * 60, // 5 days overdue
+    overtimeInterest: 1200, // 12% in basis points
+    isOverdue: true,
+    currentInterestRate: 1800, // 1.5x multiplier for 3+ days overdue
   },
 ];
 

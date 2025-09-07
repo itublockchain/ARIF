@@ -22,6 +22,10 @@ interface RequestCardProps {
     fundedPct: number;
     status: string;
     borrower: string;
+    deadline?: number;
+    overtimeInterest?: number;
+    isOverdue?: boolean;
+    currentInterestRate?: number;
   };
 }
 
@@ -71,6 +75,28 @@ export function RequestCard({ request }: RequestCardProps) {
         <div className="text-sm text-muted-foreground">
           Tenor: {request.tenor} days · Max APR: {request.maxApr}%
         </div>
+
+        {request.deadline && (
+          <div className="text-sm text-muted-foreground">
+            Due: {new Date(request.deadline * 1000).toLocaleDateString()}
+            {request.isOverdue && (
+              <span className="ml-2 text-red-600 font-medium">(Overdue)</span>
+            )}
+          </div>
+        )}
+
+        {request.overtimeInterest && (
+          <div className="text-sm text-muted-foreground">
+            Overtime Interest: {request.overtimeInterest / 100}%
+            {request.currentInterestRate &&
+              request.currentInterestRate !== request.overtimeInterest && (
+                <span className="ml-2 text-orange-600 font-medium">
+                  (Current: {request.currentInterestRate / 100}%)
+                </span>
+              )}
+          </div>
+        )}
+
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span>Funding Progress</span>

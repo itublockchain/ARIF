@@ -40,14 +40,14 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
-import { parseUnits } from "viem";
-import { mockContract } from "@/lib/mock-contract";
 import { useToast } from "@/hooks/use-toast";
+import { useContractActions } from "@/hooks/use-contract-actions";
 
 const RequestSchema = z.object({
   amount: z.string().min(1, "Amount is required"),
   token: z.string().min(1, "Please select a token"),
   dueDate: z.string().min(1, "Due date is required"),
+  overtimeInterest: z.string().min(1, "Overtime interest is required"),
 });
 
 type RequestFormData = z.infer<typeof RequestSchema>;
@@ -59,6 +59,7 @@ export default function NewBorrowPage() {
   const [submitted, setSubmitted] = useState(false);
   const [requestId, setRequestId] = useState<bigint | null>(null);
   const { toast } = useToast();
+  const { createBorrowRequest, isPending } = useContractActions();
 
   // Mock verification status
   const creditGrade = { hasGrade: true, grade: "B" as const };
@@ -92,6 +93,7 @@ export default function NewBorrowPage() {
       amount: "",
       token: "",
       dueDate: "",
+      overtimeInterest: "",
     },
   });
 
@@ -124,8 +126,7 @@ export default function NewBorrowPage() {
         return;
       }
 
-      // Parse amount to raw units using token decimals
-      const amountRaw = parseUnits(data.amount, selectedToken.decimals);
+      // Parse due date to unix timestamp
       const dueUnix = Math.floor(new Date(data.dueDate).getTime() / 1000);
 
       // Validate due date is in the future
@@ -139,22 +140,36 @@ export default function NewBorrowPage() {
         return;
       }
 
-      // Create request using mock contract
-      const newRequestId = await mockContract.createRequest(
-        address,
-        data.token as `0x${string}`,
-        amountRaw,
-        dueUnix,
-        1200 // 12% max APR in basis points
-      );
+      // Validate overtime interest is reasonable (1-50%)
+      const overtimeInterestPercent = parseInt(data.overtimeInterest);
+      if (overtimeInterestPercent < 1 || overtimeInterestPercent > 50) {
+        toast({
+          title: "Invalid Interest Rate",
+          description: "Overtime interest must be between 1% and 50%",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
-      setRequestId(newRequestId);
-      setSubmitted(true);
+      try {
+        // Create request using real contract
+        const result = await createBorrowRequest(
+          data.amount,
+          dueUnix,
+          parseInt(data.overtimeInterest),
+          selectedToken.address
+        );
 
-      toast({
-        title: "Request Created!",
-        description: `Your borrow request #${newRequestId.toString()} has been created successfully`,
-      });
+        // Use the real request ID from the contract
+        setRequestId(result.requestId);
+        setSubmitted(true);
+
+        // Toast is already shown in the hook
+      } catch (error) {
+        console.error("Error creating request:", error);
+        throw error; // Re-throw to be caught by the outer try-catch
+      }
     } catch (error) {
       console.error("Error creating request:", error);
       toast({
@@ -209,7 +224,7 @@ export default function NewBorrowPage() {
                   {new Date(form.watch("dueDate")).toLocaleDateString()}
                 </div>
                 <div>Token: {form.watch("token")}</div>
-                <div>Max APR: 12%</div>
+                <div>Overtime Interest: {form.watch("overtimeInterest")}%</div>
               </div>
             </div>
           </div>
@@ -394,6 +409,27 @@ export default function NewBorrowPage() {
                 )}
               />
 
+              <FormField
+                name="overtimeInterest"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Overtime Interest Rate (%)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="10"
+                        {...field}
+                        disabled={!canCreateRequest}
+                        type="number"
+                        min="1"
+                        max="50"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="bg-muted p-4 rounded-lg">
                 <h4 className="font-medium mb-2">Request Summary</h4>
                 <div className="text-sm text-muted-foreground space-y-1">
@@ -409,6 +445,9 @@ export default function NewBorrowPage() {
                   </div>
                   <div>Due: {form.watch("dueDate") || "Not set"}</div>
                   <div>
+                    Overtime Interest: {form.watch("overtimeInterest") || "0"}%
+                  </div>
+                  <div>
                     Borrower: {address?.slice(0, 6)}...{address?.slice(-4)}
                   </div>
                   <div>Credit Grade: {creditGrade.grade}</div>
@@ -418,10 +457,12 @@ export default function NewBorrowPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={!canCreateRequest || isSubmitting}
+                disabled={!canCreateRequest || isSubmitting || isPending}
                 size="lg"
               >
-                {isSubmitting ? "Creating Request..." : "Create Borrow Request"}
+                {isSubmitting || isPending
+                  ? "Creating Request..."
+                  : "Create Borrow Request"}
               </Button>
             </form>
           </Form>

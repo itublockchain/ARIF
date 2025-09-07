@@ -28,6 +28,7 @@ import {
 import { CreditCard, User, X, Shield } from "lucide-react";
 import { contractService } from "@/lib/contract-service";
 import { useToast } from "@/hooks/use-toast";
+import { useContractActions } from "@/hooks/use-contract-actions";
 import { BorrowRequestExtended } from "@/lib/types";
 import { parseUnits } from "viem";
 import { z } from "zod";
@@ -38,6 +39,7 @@ const RequestSchema = z.object({
   amount: z.string().min(1, "Amount is required"),
   token: z.string().min(1, "Please select a token"),
   dueDate: z.string().min(1, "Due date is required"),
+  overtimeInterest: z.string().min(1, "Overtime interest is required"),
 });
 
 type RequestFormData = z.infer<typeof RequestSchema>;
@@ -48,6 +50,8 @@ export default function BorrowerPage() {
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
+  const { createBorrowRequest, isPending: isContractPending } =
+    useContractActions();
   const { isVerified: kycStatus } = useKYCStatus();
   const [myRequests, setMyRequests] = useState<BorrowRequestExtended[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,6 +88,7 @@ export default function BorrowerPage() {
       amount: "",
       token: "",
       dueDate: "",
+      overtimeInterest: "10",
     },
   });
 
@@ -184,15 +189,16 @@ export default function BorrowerPage() {
         return;
       }
 
-      // Get contract config
-      const contractConfig = contractService.getContractConfig();
+      // Create request using real contract
+      const result = await createBorrowRequest(
+        data.amount,
+        dueUnix,
+        parseInt(data.overtimeInterest),
+        selectedToken.address
+      );
 
-      // Create request using wagmi writeContract
-      writeContract({
-        ...contractConfig,
-        functionName: "createBorrowRequest",
-        args: [amountRaw, selectedToken.address],
-      });
+      // Reset form after successful creation
+      form.reset();
     } catch (error) {
       console.error("Error creating request:", error);
       toast({
@@ -450,14 +456,33 @@ export default function BorrowerPage() {
                         className="h-12 text-lg"
                       />
                     </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        Overtime Interest Rate (%)
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="50"
+                        {...form.register("overtimeInterest")}
+                        disabled={!canCreateRequest}
+                        className="h-12 text-lg"
+                        placeholder="10"
+                      />
+                    </div>
                   </div>
 
                   <Button
                     type="submit"
                     className="w-full h-14 text-lg font-semibold bg-blue-600 hover:bg-blue-700 rounded-xl"
-                    disabled={!canCreateRequest || isPending || isConfirming}
+                    disabled={
+                      !canCreateRequest ||
+                      isPending ||
+                      isConfirming ||
+                      isContractPending
+                    }
                   >
-                    {isPending
+                    {isPending || isContractPending
                       ? "Confirming..."
                       : isConfirming
                       ? "Creating..."

@@ -2,7 +2,7 @@ import RequestBookABI from "./contracts/RequestBook.json";
 
 // Contract addresses
 export const CONTRACT_ADDRESSES = {
-  RequestBook: "0xc70Cfbddb71B7b5478C14384f6D98aa07e86fc18", // Real deployed contract
+  RequestBook: "0xf852e36a232a0Fb03B9Ae770fd0fb7473a40E045", // Real deployed contract
   ReclaimVerifier: "0x0000000000000000000000000000000000000000",
   AttestationReader: "0x0000000000000000000000000000000000000000",
   TestUSDC: "0x1234567890abcdef1234567890abcdef12345678", // Mock USDC address - should be real USDC address on RISE testnet

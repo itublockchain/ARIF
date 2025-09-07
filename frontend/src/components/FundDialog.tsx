@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DollarSign, AlertCircle } from "lucide-react";
 import { BorrowRequestExtended } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { useContractActions } from "@/hooks/use-contract-actions";
 
 interface FundDialogProps {
   request: BorrowRequestExtended;
@@ -37,6 +38,8 @@ export function FundDialog({
   const [isApproving, setIsApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { fundBorrowRequest, isPending: isContractPending } =
+    useContractActions();
 
   const remainingAmount = request.amount - (request.funded || BigInt(0));
   const needsApproval = !allowance || allowance < remainingAmount;
@@ -77,8 +80,8 @@ export function FundDialog({
       setError(null);
       setIsFunding(true);
 
-      // Fund the remaining amount automatically
-      await onFund(request.id, remainingAmount);
+      // Use real contract call instead of mock
+      await fundBorrowRequest(request.id);
 
       setIsOpen(false);
     } catch (err) {
@@ -175,10 +178,15 @@ export function FundDialog({
             ) : (
               <Button
                 onClick={handleFund}
-                disabled={isFunding || remainingAmount <= 0 || isPending}
+                disabled={
+                  isFunding ||
+                  remainingAmount <= 0 ||
+                  isPending ||
+                  isContractPending
+                }
                 className="flex-1"
               >
-                {isFunding || isPending
+                {isFunding || isPending || isContractPending
                   ? "Funding..."
                   : `Fund ${formatAmount(remainingAmount)} USDC`}
               </Button>
