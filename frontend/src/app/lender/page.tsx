@@ -59,8 +59,8 @@ export default function LenderPage() {
   const reclaimProof = { isValid: true };
 
   const formatAmount = (amount: bigint, decimals: number = 6) => {
-    // Contract'ta 10 USDC = 10000000n olarak saklanıyor, ama 1 USDC olarak gösterelim
-    const result = (Number(amount) / 10 ** decimals / 10).toLocaleString();
+    // 1 USDC = 1 dollar (1 USDC = 10^6 units)
+    const result = (Number(amount) / 10 ** decimals).toLocaleString();
     return result;
   };
 

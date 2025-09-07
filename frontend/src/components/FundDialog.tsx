@@ -96,6 +96,7 @@ export function FundDialog({
   };
 
   const formatAmount = (amount: bigint, decimals: number = 6) => {
+    // 1 USDC = 1 dollar (1 USDC = 10^6 units)
     return (Number(amount) / 10 ** decimals).toLocaleString();
   };
 

@@ -24,14 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  CheckCircle,
-  XCircle,
-  CreditCard,
-  Users,
-  DollarSign,
-  User,
-} from "lucide-react";
+import { CreditCard, User, X } from "lucide-react";
 import { contractService } from "@/lib/contract-service";
 import { useToast } from "@/hooks/use-toast";
 import { BorrowRequestExtended } from "@/lib/types";
@@ -57,6 +50,9 @@ export default function BorrowerPage() {
   const { isVerified: kycStatus } = useKYCStatus();
   const [myRequests, setMyRequests] = useState<BorrowRequestExtended[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [cancellingRequest, setCancellingRequest] = useState<bigint | null>(
+    null
+  );
   const { toast } = useToast();
 
   // Available tokens
@@ -94,11 +90,14 @@ export default function BorrowerPage() {
   const creditGrade = { grade: "B" as const, hasGrade: true };
   const reclaimProof = { isValid: true };
 
-  const formatAmount = (amount: bigint, decimals: number = 6) => {
-    // Contract'ta 10 USDC = 10000000n olarak saklanıyor, ama 1 USDC olarak gösterelim
-    const result = (Number(amount) / 10 ** decimals / 10).toLocaleString();
+  const formatAmount = (amount: bigint | undefined, decimals: number = 6) => {
+    // 1 USDC = 1 dollar (1 USDC = 10^6 units)
+    if (!amount || amount === undefined) {
+      return "0";
+    }
+    const result = (Number(amount) / 10 ** decimals).toLocaleString();
     console.log(
-      `💰 formatAmount: ${amount.toString()} / 10^${decimals} / 10 = ${result}`
+      `💰 formatAmount: ${amount.toString()} / 10^${decimals} = ${result}`
     );
     return result;
   };
@@ -109,8 +108,11 @@ export default function BorrowerPage() {
     return daysLeft > 0 ? `${daysLeft} days left` : "Overdue";
   };
 
-  const getFundedPercentage = (amount: bigint, funded: bigint) => {
-    if (!amount || amount === BigInt(0)) return 0;
+  const getFundedPercentage = (
+    amount: bigint | undefined,
+    funded: bigint | undefined
+  ) => {
+    if (!amount || amount === BigInt(0) || !funded) return 0;
     return Number((funded * BigInt(100)) / amount);
   };
 
@@ -122,6 +124,33 @@ export default function BorrowerPage() {
 
   const canCreateRequest =
     kycStatus && creditGrade.hasGrade && reclaimProof.isValid;
+
+  const handleCancelRequest = async (requestId: bigint) => {
+    if (!address) return;
+
+    try {
+      setCancellingRequest(requestId);
+
+      // Get contract config
+      const contractConfig = contractService.getContractConfig();
+
+      // Cancel request using wagmi writeContract
+      writeContract({
+        ...contractConfig,
+        functionName: "cancelBorrowRequest",
+        args: [requestId],
+      });
+    } catch (error) {
+      console.error("Error cancelling request:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to cancel request",
+        variant: "destructive",
+      });
+      setCancellingRequest(null);
+    }
+  };
 
   const onSubmit = async (data: RequestFormData) => {
     if (!canCreateRequest || !address) return;
@@ -177,30 +206,49 @@ export default function BorrowerPage() {
   // Handle transaction success
   useEffect(() => {
     if (isSuccess) {
-      toast({
-        title: "Request Created!",
-        description: "Your borrow request has been created successfully",
-      });
-      form.reset();
-      // Refresh requests
-      if (address) {
+      if (cancellingRequest) {
+        toast({
+          title: "Request Cancelled!",
+          description: "Your borrow request has been cancelled successfully",
+        });
+        setCancellingRequest(null);
+
+        // Remove cancelled request from UI immediately
+        setMyRequests((prev) =>
+          prev.filter((req) => req.id !== cancellingRequest)
+        );
+      } else {
+        toast({
+          title: "Request Created!",
+          description: "Your borrow request has been created successfully",
+        });
+        form.reset();
+      }
+
+      // Refresh requests only for new requests, not for cancellations
+      if (address && !cancellingRequest) {
         contractService
           .getBorrowRequestsByBorrower(address)
           .then(setMyRequests);
       }
     }
-  }, [isSuccess, toast, form, address]);
+  }, [isSuccess, toast, form, address, cancellingRequest]);
 
   // Handle transaction error
   useEffect(() => {
     if (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to create request",
+        description: error.message || "Transaction failed",
         variant: "destructive",
       });
+
+      // Reset cancelling request state on error
+      if (cancellingRequest) {
+        setCancellingRequest(null);
+      }
     }
-  }, [error, toast]);
+  }, [error, toast, cancellingRequest]);
 
   // Load data from mock contract
   useEffect(() => {
@@ -339,6 +387,7 @@ export default function BorrowerPage() {
               ) : (
                 myRequests.map((request) => {
                   if (!request) return null;
+
                   return (
                     <div
                       key={request.id?.toString() || Math.random().toString()}
@@ -346,8 +395,7 @@ export default function BorrowerPage() {
                     >
                       <div>
                         <div className="font-medium">
-                          {request.amount ? formatAmount(request.amount) : "0"}{" "}
-                          USDC istiyom
+                          {formatAmount(request.amount)} USDC istiyom
                         </div>
                         <div className="text-sm text-muted-foreground">
                           Due:{" "}
@@ -357,11 +405,7 @@ export default function BorrowerPage() {
                         </div>
                         <div className="text-xs text-muted-foreground">
                           Funded:{" "}
-                          {getFundedPercentage(
-                            request.amount,
-                            request.funded || BigInt(0)
-                          )}
-                          %
+                          {getFundedPercentage(request.amount, request.funded)}%
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -373,6 +417,23 @@ export default function BorrowerPage() {
                         >
                           {request.status || "Unknown"}
                         </Badge>
+                        {request.status === "Open" && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleCancelRequest(request.id)}
+                            disabled={
+                              cancellingRequest === request.id ||
+                              isPending ||
+                              isConfirming
+                            }
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            {cancellingRequest === request.id
+                              ? "Cancelling..."
+                              : "Cancel"}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
@@ -405,9 +466,9 @@ export default function BorrowerPage() {
               <CardTitle className="text-lg font-semibold">My Debts</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="text-sm font-medium">10 borcum var x'e</div>
-              <div className="text-sm font-medium">5 borcum var y'ye</div>
-              <div className="text-sm font-medium">15 borcum var z'ye</div>
+              <div className="text-sm font-medium">10 borcum var x&apos;e</div>
+              <div className="text-sm font-medium">5 borcum var y&apos;ye</div>
+              <div className="text-sm font-medium">15 borcum var z&apos;ye</div>
             </CardContent>
           </Card>
         </div>

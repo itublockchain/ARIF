@@ -1,6 +1,6 @@
 import { CONTRACT_ADDRESSES, CONTRACT_ABIS } from "./contracts";
 import { BorrowRequest, Loan, BorrowRequestExtended } from "./types";
-import { getContract, createPublicClient, http } from "viem";
+import { getContract, createPublicClient, http, parseUnits } from "viem";
 import { rise } from "./chains/rise";
 
 // Create public client
@@ -37,7 +37,7 @@ class ContractService {
       const requestData = await publicClient.readContract({
         address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
         abi: CONTRACT_ABIS.RequestBook,
-        functionName: "getBorrowRequest",
+        functionName: "borrowRequestByID",
         args: [borrowID],
       });
 
@@ -57,7 +57,12 @@ class ContractService {
   // Get all loans for a lender
   async getAllLoans(lender: `0x${string}`): Promise<bigint[]> {
     try {
-      return await this.requestBookContract.read.getAllLoans([lender]);
+      return await publicClient.readContract({
+        address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
+        abi: CONTRACT_ABIS.RequestBook,
+        functionName: "getAllLoans",
+        args: [lender],
+      });
     } catch (error) {
       console.error("Error getting all loans:", error);
       return [];
@@ -69,16 +74,28 @@ class ContractService {
     try {
       // This would require a view function in the contract
       // For now, we'll implement a workaround by checking all IDs
-      const nextID = await this.requestBookContract.read.nextID();
+      const nextID = (await publicClient.readContract({
+        address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
+        abi: CONTRACT_ABIS.RequestBook,
+        functionName: "nextID",
+        args: [],
+      })) as unknown as bigint;
       const requestIDs: bigint[] = [];
 
       for (let i = BigInt(0); i < nextID; i++) {
         try {
-          const requestData =
-            await this.requestBookContract.read.borrowRequestByID([i]);
+          const requestData = await publicClient.readContract({
+            address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
+            abi: CONTRACT_ABIS.RequestBook,
+            functionName: "borrowRequestByID",
+            args: [i],
+          });
           // Contract'tan gelen veri array formatında [id, amount, borrower, assetERC20Address]
           const borrowerAddress = requestData[2];
-          if (borrowerAddress.toLowerCase() === borrower.toLowerCase()) {
+          if (
+            borrowerAddress &&
+            borrowerAddress.toLowerCase() === borrower.toLowerCase()
+          ) {
             requestIDs.push(i);
           }
         } catch {
@@ -96,13 +113,16 @@ class ContractService {
   // Get loan details by borrow ID
   async getLoanByBorrowID(borrowID: bigint): Promise<Loan | null> {
     try {
-      const loan = await this.requestBookContract.read.loanByBorrowID([
-        borrowID,
-      ]);
+      const loan = await publicClient.readContract({
+        address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
+        abi: CONTRACT_ABIS.RequestBook,
+        functionName: "loanByBorrowID",
+        args: [borrowID],
+      });
       return {
-        isFilled: loan.isFilled,
-        borrowID: loan.borrowID,
-        lender: loan.lender,
+        isFilled: loan[0],
+        borrowID: loan[1],
+        lender: loan[2],
       };
     } catch (error) {
       console.error("Error getting loan by borrow ID:", error);
@@ -113,9 +133,13 @@ class ContractService {
   // Check if a borrow request is cancelled
   async isBorrowRequestCancelled(borrowID: bigint): Promise<boolean> {
     try {
-      return await this.requestBookContract.read.cancelledBorrowRequests([
-        borrowID,
-      ]);
+      const result = await publicClient.readContract({
+        address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
+        abi: CONTRACT_ABIS.RequestBook,
+        functionName: "cancelledBorrowRequests",
+        args: [borrowID],
+      });
+      return result as unknown as boolean;
     } catch (error) {
       console.error("Error checking if borrow request is cancelled:", error);
       return false;
@@ -126,7 +150,12 @@ class ContractService {
   async getAllBorrowRequests(): Promise<BorrowRequestExtended[]> {
     try {
       console.log("🔍 Getting all borrow requests...");
-      const nextID = await this.requestBookContract.read.nextID();
+      const nextID = (await publicClient.readContract({
+        address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
+        abi: CONTRACT_ABIS.RequestBook,
+        functionName: "nextID",
+        args: [],
+      })) as unknown as bigint;
       console.log("📊 Next ID:", nextID.toString());
       const requests: BorrowRequestExtended[] = [];
 
@@ -139,8 +168,12 @@ class ContractService {
       for (let i = BigInt(0); i < nextID; i++) {
         try {
           console.log(`🔍 Checking request ID: ${i.toString()}`);
-          const requestData =
-            await this.requestBookContract.read.borrowRequestByID([i]);
+          const requestData = await publicClient.readContract({
+            address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
+            abi: CONTRACT_ABIS.RequestBook,
+            functionName: "borrowRequestByID",
+            args: [i],
+          });
           console.log("📋 Request data:", requestData);
 
           // Contract'tan gelen veri array formatında [id, amount, borrower, assetERC20Address]
@@ -151,7 +184,21 @@ class ContractService {
             assetERC20Address: requestData[3],
           };
 
+          console.log("📋 Raw request data:", requestData);
           console.log("📋 Parsed request:", request);
+
+          // Eğer veri geçersizse (undefined değerler varsa) atla
+          if (
+            !request.id ||
+            !request.amount ||
+            !request.borrower ||
+            !request.assetERC20Address
+          ) {
+            console.log(
+              `❌ Invalid request data for ID ${i.toString()}, skipping`
+            );
+            continue;
+          }
 
           // Request verisi geçerli mi kontrol et
           if (
@@ -167,7 +214,7 @@ class ContractService {
           const loan = await this.getLoanByBorrowID(i);
 
           if (!isCancelled) {
-            const requestData = {
+            const requestData: BorrowRequestExtended = {
               id: request.id,
               borrower: request.borrower,
               amount: request.amount,
@@ -205,29 +252,63 @@ class ContractService {
       const requests: BorrowRequestExtended[] = [];
 
       for (const id of requestIDs) {
-        const request = await this.getBorrowRequest(id);
-        console.log(`📋 Request ${id.toString()}:`, request);
-        if (request) {
-          const isCancelled = await this.isBorrowRequestCancelled(id);
-          const loan = await this.getLoanByBorrowID(id);
+        try {
+          const request = await this.getBorrowRequest(id);
+          console.log(`📋 Request ${id.toString()}:`, request);
 
-          if (!isCancelled) {
-            const requestData = {
-              ...request,
-              status: loan?.isFilled ? "Funded" : "Open",
-              funded: loan?.isFilled ? request.amount : BigInt(0),
-            };
-            console.log("✅ Adding borrower request:", requestData);
-            requests.push(requestData);
+          if (
+            request &&
+            request.amount &&
+            request.borrower &&
+            request.assetERC20Address
+          ) {
+            const isCancelled = await this.isBorrowRequestCancelled(id);
+            const loan = await this.getLoanByBorrowID(id);
+
+            // Only add non-cancelled requests
+            if (!isCancelled) {
+              const requestData: BorrowRequestExtended = {
+                ...request,
+                status: loan?.isFilled ? "Funded" : "Open",
+                funded: loan?.isFilled ? request.amount : BigInt(0),
+              };
+              console.log("✅ Adding borrower request:", requestData);
+              requests.push(requestData);
+            } else {
+              console.log("❌ Skipping cancelled request:", id.toString());
+            }
+          } else {
+            console.log(
+              `❌ Invalid request data for ID ${id.toString()}, skipping`
+            );
           }
+        } catch (error) {
+          console.log(`❌ Error processing request ${id.toString()}:`, error);
+          // Continue with next request
         }
       }
 
+      // If no real data found, return empty array instead of mock data
+      // This prevents showing cancelled requests in mock data
       console.log("📊 Total borrower requests found:", requests.length);
       return requests;
     } catch (error) {
       console.error("Error getting borrow requests by borrower:", error);
       return [];
+    }
+  }
+
+  // Cancel a borrow request
+  async cancelBorrowRequest(borrowID: bigint): Promise<boolean> {
+    try {
+      console.log("🚫 Cancelling borrow request:", borrowID.toString());
+
+      // This would be called from the frontend using wagmi writeContract
+      // For now, we'll just return true as the actual transaction will be handled by wagmi
+      return true;
+    } catch (error) {
+      console.error("Error cancelling borrow request:", error);
+      return false;
     }
   }
 }
