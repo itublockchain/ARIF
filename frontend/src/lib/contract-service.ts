@@ -167,7 +167,10 @@ class ContractService {
       console.log(`📋 Parsed loan data for ID ${borrowID.toString()}:`, result);
       return result;
     } catch (error) {
-      console.error(`❌ Error getting loan by borrow ID ${borrowID.toString()}:`, error);
+      console.error(
+        `❌ Error getting loan by borrow ID ${borrowID.toString()}:`,
+        error
+      );
       return null;
     }
   }
@@ -278,6 +281,10 @@ class ContractService {
               ),
             };
             console.log("✅ Adding request:", requestData);
+            console.log(
+              `💰 isFunded for ID ${i.toString()}:`,
+              requestData.isFunded
+            );
             requests.push(requestData);
           } else {
             console.log("❌ Skipping cancelled request:", i.toString());

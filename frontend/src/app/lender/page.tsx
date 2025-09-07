@@ -269,7 +269,8 @@ export default function LenderPage() {
                 Open Credit Requests
               </h2>
               <div className="text-sm text-slate-700 dark:text-slate-300">
-                {borrowRequests.length} requests found
+                {borrowRequests.filter((request) => !request.isFunded).length}{" "}
+                open requests
               </div>
             </div>
 
@@ -288,7 +289,26 @@ export default function LenderPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {borrowRequests.map((request) => (
+                {(() => {
+                  const unfundedRequests = borrowRequests.filter(
+                    (request) => !request.isFunded
+                  );
+                  console.log(
+                    "🔍 All requests:",
+                    borrowRequests.map((r) => ({
+                      id: r.id.toString(),
+                      isFunded: r.isFunded,
+                    }))
+                  );
+                  console.log(
+                    "✅ Unfunded requests:",
+                    unfundedRequests.map((r) => ({
+                      id: r.id.toString(),
+                      isFunded: r.isFunded,
+                    }))
+                  );
+                  return unfundedRequests;
+                })().map((request) => (
                   <Card
                     key={request.id.toString()}
                     className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white dark:bg-slate-800"

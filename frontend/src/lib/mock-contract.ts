@@ -1,5 +1,5 @@
 import { BorrowRequestExtended, Lending } from "./types";
-
+ 
 // Mock contract service - will be replaced with real contract calls
 class MockContractService {
   private requests: Map<bigint, BorrowRequestExtended> = new Map();
