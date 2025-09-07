@@ -360,6 +360,12 @@ export default function LenderPage() {
                                 isConfirming ||
                                 fundingRequest?.id === request.id
                               }
+                              onFundStart={(requestId, amount) => {
+                                setFundingRequest({ id: requestId, amount });
+                              }}
+                              onFundCancel={() => {
+                                setFundingRequest(null);
+                              }}
                               onFundSuccess={() => {
                                 // Refresh requests to update funding status
                                 contractService

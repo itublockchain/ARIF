@@ -23,6 +23,8 @@ interface FundDialogProps {
   isPending?: boolean;
   children: React.ReactNode;
   onFundSuccess?: () => void;
+  onFundStart?: (requestId: bigint, amount: bigint) => void;
+  onFundCancel?: () => void;
 }
 
 export function FundDialog({
@@ -32,6 +34,8 @@ export function FundDialog({
   isPending,
   children,
   onFundSuccess,
+  onFundStart,
+  onFundCancel,
 }: FundDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isFunding, setIsFunding] = useState(false);
@@ -105,12 +109,19 @@ export function FundDialog({
       setError(null);
       setIsFunding(true);
 
+      // Notify parent that funding has started
+      onFundStart?.(request.id, remainingAmount);
+
       // Use real contract call instead of mock
       await fundBorrowRequest(request.id);
 
       // Call success callback if provided
       onFundSuccess?.();
 
+      // Reset all states and close dialog
+      setIsFunding(false);
+      setIsApproving(false);
+      setError(null);
       setIsOpen(false);
     } catch (err) {
       let errorMessage = "Failed to fund request";
@@ -139,6 +150,8 @@ export function FundDialog({
         description: errorMessage,
         variant: "destructive",
       });
+      // Notify parent that funding failed
+      onFundCancel?.();
     } finally {
       setIsFunding(false);
     }
@@ -149,8 +162,21 @@ export function FundDialog({
     return (Number(amount) / 10 ** decimals).toLocaleString();
   };
 
+  // Reset dialog state when closing
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      // Reset all states when dialog is closed
+      setIsFunding(false);
+      setIsApproving(false);
+      setError(null);
+      // Notify parent that funding was cancelled
+      onFundCancel?.();
+    }
+    setIsOpen(open);
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleDialogClose}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -239,7 +265,7 @@ export function FundDialog({
               </Button>
             )}
             <Button
-              onClick={() => setIsOpen(false)}
+              onClick={() => handleDialogClose(false)}
               variant="outline"
               className="flex-1"
             >
