@@ -91,7 +91,7 @@ async function testContract() {
       try {
         const request = await contract.methods.getBorrowRequest(i).call();
         console.log(`Request ${i}:`, request);
-      } catch (error) {
+      } catch {
         console.log(`Request ${i}: Does not exist`);
       }
     }

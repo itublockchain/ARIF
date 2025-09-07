@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  webpack: (config, { isServer }) => {
+  webpack: (config) => {
     // EAS SDK için webpack ayarları
     config.resolve.fallback = {
       ...config.resolve.fallback,
