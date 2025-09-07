@@ -12,14 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import {
-  CreditCard,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  DollarSign,
-} from "lucide-react";
-import { CONTRACT_ADDRESSES, CONTRACT_ABIS } from "@/lib/contracts";
+import { CreditCard, AlertCircle, DollarSign } from "lucide-react";
 import { contractService } from "@/lib/contract-service";
 import { useToast } from "@/hooks/use-toast";
 import { useContractActions } from "@/hooks/use-contract-actions";
@@ -30,7 +23,6 @@ interface RepayButtonProps {
   amount: bigint;
   deadline: bigint;
   overtimeInterest: bigint;
-  assetAddress: `0x${string}`;
   className?: string;
   size?: "default" | "sm" | "lg" | "icon";
   variant?:
@@ -47,7 +39,6 @@ export function RepayButton({
   amount,
   deadline,
   overtimeInterest,
-  assetAddress,
   className,
   size = "default",
   variant = "default",

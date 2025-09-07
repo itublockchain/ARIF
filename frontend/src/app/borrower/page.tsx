@@ -175,8 +175,7 @@ export default function BorrowerPage() {
         return;
       }
 
-      // Parse amount to raw units using token decimals
-      const amountRaw = parseUnits(data.amount, selectedToken.decimals);
+      // Parse due date to unix timestamp
       const dueUnix = Math.floor(new Date(data.dueDate).getTime() / 1000);
 
       // Validate due date is in the future
@@ -190,7 +189,7 @@ export default function BorrowerPage() {
       }
 
       // Create request using real contract
-      const result = await createBorrowRequest(
+      await createBorrowRequest(
         data.amount,
         dueUnix,
         parseInt(data.overtimeInterest),

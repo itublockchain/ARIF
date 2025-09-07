@@ -18,7 +18,6 @@ import { useContractActions } from "@/hooks/use-contract-actions";
 
 interface FundDialogProps {
   request: BorrowRequestExtended;
-  onFund: (requestId: bigint, amount: bigint) => Promise<void>;
   onApprove: (amount: bigint) => Promise<void>;
   allowance?: bigint;
   isPending?: boolean;
@@ -27,7 +26,6 @@ interface FundDialogProps {
 
 export function FundDialog({
   request,
-  onFund,
   onApprove,
   allowance,
   isPending,

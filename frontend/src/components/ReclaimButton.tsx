@@ -39,7 +39,11 @@ export function ReclaimButton({
     "start"
   );
   const [error, setError] = useState<string | null>(null);
-  const [proof, setProof] = useState<any>(null);
+  const [proof, setProof] = useState<{
+    proofHash: string;
+    timestamp: number;
+    isValid: boolean;
+  } | null>(null);
 
   const handleStart = async () => {
     setIsLoading(true);
