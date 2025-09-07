@@ -12,11 +12,11 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DollarSign, AlertCircle } from "lucide-react";
-import { BorrowRequest } from "@/lib/types";
+import { BorrowRequestExtended } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
 interface FundDialogProps {
-  request: BorrowRequest;
+  request: BorrowRequestExtended;
   onFund: (requestId: bigint, amount: bigint) => Promise<void>;
   onApprove: (amount: bigint) => Promise<void>;
   allowance?: bigint;

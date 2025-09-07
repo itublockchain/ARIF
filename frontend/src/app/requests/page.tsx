@@ -5,7 +5,7 @@ import { useAccount } from "wagmi";
 import {
   Card,
   CardContent,
-  CardDescription,
+  // CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -80,7 +80,7 @@ const mockRequests = [
 ];
 
 export default function RequestsPage() {
-  const { address, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const [searchTerm, setSearchTerm] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [tenorFilter, setTenorFilter] = useState<string>("all");

@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   CheckCircle,
-  XCircle,
+  // XCircle,
   AlertCircle,
   Shield,
   CreditCard,
@@ -30,7 +30,7 @@ export default function VerifyPage() {
   const {
     isVerified: kycCompleted,
     isLoading: kycLoading,
-    updateKYCStatus,
+    // updateKYCStatus,
   } = useKYCStatus();
   const [currentStep, setCurrentStep] = useState<VerificationStep>("kyc");
   const [reclaimCompleted, setReclaimCompleted] = useState(false);
@@ -259,7 +259,7 @@ export default function VerifyPage() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   Reclaim Protocol allows you to prove your financial data
-                  without revealing it. You'll need to connect your bank account
+                  without revealing it. You&apos;ll need to connect your bank account
                   and prove income/balance thresholds.
                 </AlertDescription>
               </Alert>
@@ -311,7 +311,7 @@ export default function VerifyPage() {
                   Verification Complete!
                 </h3>
                 <p className="text-muted-foreground">
-                  You're now ready to use the platform
+                  You&apos;re now ready to use the platform
                 </p>
               </div>
               <div className="flex justify-center gap-4">

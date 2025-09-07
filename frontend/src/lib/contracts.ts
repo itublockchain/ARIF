@@ -58,8 +58,8 @@ const ERC20_ABI = [
 
 // Contract ABIs
 export const CONTRACT_ABIS = {
-  RequestBook: RequestBookABI as any[],
-  ReclaimVerifier: [] as any[],
-  AttestationReader: [] as any[],
+  RequestBook: RequestBookABI as unknown[],
+  ReclaimVerifier: [] as unknown[],
+  AttestationReader: [] as unknown[],
   TestUSDC: ERC20_ABI,
 } as const;

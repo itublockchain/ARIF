@@ -1,25 +1,25 @@
-import { BorrowRequest, Lending, RequestStatus } from "./types";
+import { BorrowRequestExtended, Lending, RequestStatus } from "./types";
 
 // Mock contract service - will be replaced with real contract calls
 class MockContractService {
-  private requests: Map<bigint, BorrowRequest> = new Map();
+  private requests: Map<bigint, BorrowRequestExtended> = new Map();
   private lendings: Map<string, Lending> = new Map();
   private nextRequestId = 1n;
 
   // Create a new borrow request
   async createRequest(
     borrower: `0x${string}`,
-    token: `0x${string}`,
+    assetERC20Address: `0x${string}`,
     amount: bigint,
     dueDate: number,
     maxAprBps?: number
   ): Promise<bigint> {
     const requestId = this.nextRequestId++;
 
-    const request: BorrowRequest = {
+    const request: BorrowRequestExtended = {
       id: requestId,
       borrower,
-      token,
+      assetERC20Address,
       amount,
       dueDate,
       funded: 0n,
@@ -50,13 +50,13 @@ class MockContractService {
       throw new Error("Request is not open for funding");
     }
 
-    const remainingAmount = request.amount - request.funded;
+    const remainingAmount = request.amount - (request.funded || 0n);
     if (amount > remainingAmount) {
       throw new Error("Amount exceeds remaining funding needed");
     }
 
     // Update request funding
-    request.funded += amount;
+    request.funded = (request.funded || 0n) + amount;
 
     // If fully funded, change status
     if (request.funded >= request.amount) {
@@ -68,9 +68,9 @@ class MockContractService {
     const lending: Lending = {
       requestId,
       lender,
-      token: request.token,
+      token: request.assetERC20Address,
       amount,
-      dueDate: request.dueDate,
+      dueDate: request.dueDate || 0,
       borrower: request.borrower,
     };
 
@@ -135,14 +135,14 @@ class MockContractService {
   }
 
   // Get all open requests
-  async getAllRequests(): Promise<BorrowRequest[]> {
+  async getAllRequests(): Promise<BorrowRequestExtended[]> {
     return Array.from(this.requests.values());
   }
 
   // Get requests by borrower
   async getRequestsByBorrower(
     borrower: `0x${string}`
-  ): Promise<BorrowRequest[]> {
+  ): Promise<BorrowRequestExtended[]> {
     return Array.from(this.requests.values()).filter(
       (request) => request.borrower === borrower
     );
@@ -156,7 +156,9 @@ class MockContractService {
   }
 
   // Get request by ID
-  async getRequestById(requestId: bigint): Promise<BorrowRequest | null> {
+  async getRequestById(
+    requestId: bigint
+  ): Promise<BorrowRequestExtended | null> {
     return this.requests.get(requestId) || null;
   }
 }

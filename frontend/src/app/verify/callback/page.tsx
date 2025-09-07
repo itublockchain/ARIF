@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAccount } from "wagmi";
 import { useKYCStatus } from "@/hooks/use-kyc-status";
@@ -26,7 +26,7 @@ import Link from "next/link";
 
 type KYCStatus = "loading" | "success" | "failed" | "pending" | "error";
 
-export default function VerifyCallbackPage() {
+function VerifyCallbackContent() {
   const searchParams = useSearchParams();
   const { address } = useAccount();
   const { updateKYCStatus } = useKYCStatus();
@@ -35,6 +35,115 @@ export default function VerifyCallbackPage() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [isClient, setIsClient] = useState(false);
+
+  const checkKYCStatus = useCallback(
+    async (inquiryId: string, retryCount = 0) => {
+      try {
+        setStatus("loading");
+        setProgress(25);
+
+        // Call our KYC status API
+        const response = await fetch(`/api/kyc/status?inquiryId=${inquiryId}`, {
+          cache: "no-store",
+        });
+        setProgress(50);
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to check KYC status");
+        }
+
+        setProgress(75);
+        const {
+          ui: personaUI,
+          status: personaStatus,
+          decision,
+          outcome,
+        } = data;
+
+        console.log("Persona status check:", {
+          personaUI,
+          personaStatus,
+          decision,
+          outcome,
+        });
+
+        if (personaUI === "APPROVED") {
+          setStatus("success");
+          setProgress(100);
+
+          // Create EAS attestation only if wallet is connected
+          if (address) {
+            try {
+              const attestResponse = await fetch("/api/kyc/attest", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  inquiryId,
+                  walletAddress: address,
+                }),
+              });
+
+              if (attestResponse.ok) {
+                const attestData = await attestResponse.json();
+                console.log(
+                  "KYC attestation created:",
+                  attestData.attestationUID
+                );
+              } else {
+                const errorData = await attestResponse.json();
+                console.error("Failed to create KYC attestation:", errorData);
+              }
+            } catch (attestError) {
+              console.error("Error creating KYC attestation:", attestError);
+            }
+          } else {
+            console.log("No wallet connected, skipping attestation creation");
+          }
+
+          // Update KYC status in the hook
+          updateKYCStatus(true, inquiryId);
+        } else if (personaUI === "DECLINED") {
+          setStatus("failed");
+          setProgress(100);
+          updateKYCStatus(false);
+        } else if (personaUI === "PENDING") {
+          setStatus("pending");
+          setProgress(50);
+
+          // Retry logic: check again after 5 seconds, max 12 times (60 seconds total)
+          if (retryCount < 12) {
+            setTimeout(() => {
+              checkKYCStatus(inquiryId, retryCount + 1);
+            }, 5000);
+          } else {
+            setError(
+              "Verification is taking longer than expected. Please try again later."
+            );
+            setStatus("error");
+            setProgress(100);
+          }
+        } else if (personaUI === "ERROR") {
+          setError("Failed to verify KYC status");
+          setStatus("error");
+          setProgress(100);
+        } else {
+          setError("Unknown KYC status received");
+          setStatus("error");
+          setProgress(100);
+        }
+      } catch (err) {
+        console.error("Error checking KYC status:", err);
+        setError("Failed to verify KYC status");
+        setStatus("error");
+        setProgress(100);
+      }
+    },
+    [address, updateKYCStatus]
+  );
 
   useEffect(() => {
     setIsClient(true);
@@ -63,108 +172,7 @@ export default function VerifyCallbackPage() {
       setError("No inquiry ID provided");
       setStatus("error");
     }
-  }, [searchParams, isClient, address]);
-
-  const checkKYCStatus = async (inquiryId: string, retryCount = 0) => {
-    try {
-      setStatus("loading");
-      setProgress(25);
-
-      // Call our KYC status API
-      const response = await fetch(`/api/kyc/status?inquiryId=${inquiryId}`, {
-        cache: "no-store",
-      });
-      setProgress(50);
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to check KYC status");
-      }
-
-      setProgress(75);
-      const { ui: personaUI, status: personaStatus, decision, outcome } = data;
-
-      console.log("Persona status check:", {
-        personaUI,
-        personaStatus,
-        decision,
-        outcome,
-      });
-
-      if (personaUI === "APPROVED") {
-        setStatus("success");
-        setProgress(100);
-
-        // Create EAS attestation only if wallet is connected
-        if (address) {
-          try {
-            const attestResponse = await fetch("/api/kyc/attest", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                inquiryId,
-                walletAddress: address,
-              }),
-            });
-
-            if (attestResponse.ok) {
-              const attestData = await attestResponse.json();
-              console.log(
-                "KYC attestation created:",
-                attestData.attestationUID
-              );
-            } else {
-              const errorData = await attestResponse.json();
-              console.error("Failed to create KYC attestation:", errorData);
-            }
-          } catch (attestError) {
-            console.error("Error creating KYC attestation:", attestError);
-          }
-        } else {
-          console.log("No wallet connected, skipping attestation creation");
-        }
-
-        // Update KYC status in the hook
-        updateKYCStatus(true, inquiryId);
-      } else if (personaUI === "DECLINED") {
-        setStatus("failed");
-        setProgress(100);
-        updateKYCStatus(false);
-      } else if (personaUI === "PENDING") {
-        setStatus("pending");
-        setProgress(50);
-
-        // Retry logic: check again after 5 seconds, max 12 times (60 seconds total)
-        if (retryCount < 12) {
-          setTimeout(() => {
-            checkKYCStatus(inquiryId, retryCount + 1);
-          }, 5000);
-        } else {
-          setError(
-            "Verification is taking longer than expected. Please try again later."
-          );
-          setStatus("error");
-          setProgress(100);
-        }
-      } else if (personaUI === "ERROR") {
-        setError("Failed to verify KYC status");
-        setStatus("error");
-        setProgress(100);
-      } else {
-        setError("Unknown KYC status received");
-        setStatus("error");
-        setProgress(100);
-      }
-    } catch (err) {
-      console.error("Error checking KYC status:", err);
-      setError("Failed to verify KYC status");
-      setStatus("error");
-      setProgress(100);
-    }
-  };
+  }, [searchParams, isClient, address, checkKYCStatus]);
 
   const getStatusIcon = () => {
     switch (status) {
@@ -352,5 +360,25 @@ export default function VerifyCallbackPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VerifyCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-2xl mx-auto space-y-6">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+              <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+            </div>
+            <h1 className="text-3xl font-bold">KYC Verification</h1>
+            <p className="text-muted-foreground text-lg">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <VerifyCallbackContent />
+    </Suspense>
   );
 }

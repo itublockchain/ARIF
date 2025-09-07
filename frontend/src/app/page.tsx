@@ -69,8 +69,8 @@ export default function HomePage() {
                 platform where users can provide credit directly to each other
               </p>
               <p className="text-lg text-blue-200 max-w-3xl mx-auto">
-                Bridging the gap between traditional finance's high costs and
-                DeFi's regulatory challenges; offering a reliable, transparent,
+                Bridging the gap between traditional finance&apos;s high costs and
+                DeFi&apos;s regulatory challenges; offering a reliable, transparent,
                 and sustainable alternative.
               </p>
             </div>

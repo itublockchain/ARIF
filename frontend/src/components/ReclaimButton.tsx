@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, QrCode, CheckCircle, AlertCircle } from "lucide-react";
 
 interface ReclaimButtonProps {
-  onSuccess?: (proof: any) => void;
+  onSuccess?: (proof: unknown) => void;
   onError?: (error: string) => void;
   className?: string;
   size?: "sm" | "default" | "lg";
@@ -114,7 +114,7 @@ export function ReclaimButton({
                 </Alert>
 
                 <div className="space-y-2">
-                  <h4 className="font-medium">What you'll prove:</h4>
+                  <h4 className="font-medium">What you&apos;ll prove:</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
                     <li>• Income is above a certain threshold</li>
                     <li>• Account balance is above a certain amount</li>
@@ -153,7 +153,7 @@ export function ReclaimButton({
                 >
                   {isLoading
                     ? "Generating Proof..."
-                    : "I've Connected My Account"}
+                    : "I&apos;ve Connected My Account"}
                 </Button>
               </div>
             )}

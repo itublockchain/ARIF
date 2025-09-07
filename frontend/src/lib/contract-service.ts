@@ -34,12 +34,12 @@ class ContractService {
   // Get a specific borrow request
   async getBorrowRequest(borrowID: bigint): Promise<BorrowRequest | null> {
     try {
-      const requestData = await publicClient.readContract({
+      const requestData = (await publicClient.readContract({
         address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
         abi: CONTRACT_ABIS.RequestBook,
         functionName: "borrowRequestByID",
         args: [borrowID],
-      });
+      })) as [bigint, bigint, `0x${string}`, `0x${string}`];
 
       // Data from contract comes in array format [id, amount, borrower, assetERC20Address]
       return {
@@ -57,12 +57,12 @@ class ContractService {
   // Get all loans for a lender
   async getAllLoans(lender: `0x${string}`): Promise<bigint[]> {
     try {
-      return await publicClient.readContract({
+      return (await publicClient.readContract({
         address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
         abi: CONTRACT_ABIS.RequestBook,
         functionName: "getAllLoans",
         args: [lender],
-      });
+      })) as bigint[];
     } catch (error) {
       console.error("Error getting all loans:", error);
       return [];
@@ -84,12 +84,12 @@ class ContractService {
 
       for (let i = BigInt(0); i < nextID; i++) {
         try {
-          const requestData = await publicClient.readContract({
+          const requestData = (await publicClient.readContract({
             address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
             abi: CONTRACT_ABIS.RequestBook,
             functionName: "borrowRequestByID",
             args: [i],
-          });
+          })) as [bigint, bigint, `0x${string}`, `0x${string}`];
           // Data from contract comes in array format [id, amount, borrower, assetERC20Address]
           const borrowerAddress = requestData[2];
           if (
@@ -113,12 +113,12 @@ class ContractService {
   // Get loan details by borrow ID
   async getLoanByBorrowID(borrowID: bigint): Promise<Loan | null> {
     try {
-      const loan = await publicClient.readContract({
+      const loan = (await publicClient.readContract({
         address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
         abi: CONTRACT_ABIS.RequestBook,
         functionName: "loanByBorrowID",
         args: [borrowID],
-      });
+      })) as [boolean, bigint, `0x${string}`];
       return {
         isFilled: loan[0],
         borrowID: loan[1],
@@ -168,12 +168,12 @@ class ContractService {
       for (let i = BigInt(0); i < nextID; i++) {
         try {
           console.log(`🔍 Checking request ID: ${i.toString()}`);
-          const requestData = await publicClient.readContract({
+          const requestData = (await publicClient.readContract({
             address: CONTRACT_ADDRESSES.RequestBook as `0x${string}`,
             abi: CONTRACT_ABIS.RequestBook,
             functionName: "borrowRequestByID",
             args: [i],
-          });
+          })) as [bigint, bigint, `0x${string}`, `0x${string}`];
           console.log("📋 Request data:", requestData);
 
           // Data from contract comes in array format [id, amount, borrower, assetERC20Address]

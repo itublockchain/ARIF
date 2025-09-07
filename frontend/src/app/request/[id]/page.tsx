@@ -23,7 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   CreditCard,
@@ -32,7 +32,7 @@ import {
   CheckCircle,
   AlertCircle,
   Users,
-  DollarSign,
+  // DollarSign,
 } from "lucide-react";
 import Link from "next/link";
 
